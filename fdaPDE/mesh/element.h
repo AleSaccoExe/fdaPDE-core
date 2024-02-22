@@ -24,6 +24,7 @@
 #include "../utils/assert.h"
 #include "../utils/compile_time.h"
 #include "../utils/symbols.h"
+#include "../utils/intersection.h"
 #include "mesh_utils.h"
 
 namespace fdapde {
@@ -85,6 +86,12 @@ template <int M, int N> class Element {
 	local_dimension = M,
 	embedding_dimension = N
     };
+
+    // AGGIUNTE MIE 
+    // ===========>
+    bool intersection(const Element<M, N> & other_el) const;
+    // ================>
+    // FINE AGGIUNTE MIE
 };
 
 // implementation details
@@ -180,6 +187,95 @@ typename std::enable_if<is_manifold, bool>::type Element<M, N>::contains(const S
     // check if its barycentric coordinates are all positive
     return (to_barycentric_coords(x).array() >= -10 * std::numeric_limits<double>::epsilon()).all();
 }
+
+// AGGIUNTE MIE
+// ===========>
+template<>
+bool Element<2, 3>::intersection(const Element<2, 3>& other_el) const
+{
+    // Compute the normal to the triangle and the RHS 
+    // of the equation of the plane the triangle lies in
+    auto A = coords_[0];
+    auto B = coords_[1];
+    auto C = coords_[2];
+
+    auto D = other_el.coords_[0];
+    auto E = other_el.coords_[1];
+    auto F = other_el.coords_[2];
+    
+    auto N = (B - A).cross(C - B);
+    N.normalize();
+    auto RHS = N.dot(A);
+
+    // Extract the maximum coordinate of N
+    int z = getMaxCoord(N); // coordinata massima
+    int x = (z+1) % 3;
+    int y = (z+2) % 3;
+
+    // Project the triangle ABC onto the "xy"-plane
+    Eigen::Vector2d a(A[x],A[y]);
+    Eigen::Vector2d b(B[x],B[y]);
+    Eigen::Vector2d c(C[x],C[y]);
+    
+    auto de_abc = intSegTri(D,E,a,b,c,N,RHS,x,y);
+    //utility::printIntersectionType(de_abc,"de and abc");
+    auto ef_abc = intSegTri(E,F,a,b,c,N,RHS,x,y);
+    //utility::printIntersectionType(ef_abc,"ef and abc");
+    auto fd_abc = intSegTri(F,D,a,b,c,N,RHS,x,y);
+    //utility::printIntersectionType(fd_abc,"fd and abc");
+    
+    // If at least one segment-triangle intersection
+        // is not conformal, the triangle-triangle intersection is 
+        // invalid too
+        if ((de_abc == IntersectionType::INVALID) ||
+            (ef_abc == IntersectionType::INVALID) ||
+            (fd_abc == IntersectionType::INVALID))
+            return true;
+            
+        // 
+        // Triangle DEF as reference
+        //
+        
+            // Compute the normal to the triangle and the RHS 
+            // of the equation of the plane the triangle lies in
+            N = (E - D).cross(F - E);
+            N.normalize();
+            RHS = N.dot(D);
+        
+            // Extract the maximum coordinate of N
+            z = getMaxCoord(N);
+            x = (z+1) % 3;
+            y = (z+2) % 3;
+        
+            // Project the triangle ABC onto the "xy"-plane
+            Eigen::Vector2d d(D[x],D[y]);
+            Eigen::Vector2d e(E[x],E[y]);
+            Eigen::Vector2d f(F[x],F[y]);
+        
+        // Test intersection of each edge of DEF with ABC
+        auto ab_def = intSegTri(A,B,d,e,f,N,RHS,x,y);
+        //utility::printIntersectionType(ab_def,"ab and def");
+        auto bc_def = intSegTri(B,C,d,e,f,N,RHS,x,y);
+        //utility::printIntersectionType(bc_def,"bc and def");
+        auto ca_def = intSegTri(C,A,d,e,f,N,RHS,x,y);
+        //utility::printIntersectionType(ca_def,"ca and def");
+                
+        // If at least one segment-triangle intersection
+        // is not conformal, the triangle-triangle intersection is 
+        // invalid too
+        if ((ab_def == IntersectionType::INVALID) ||
+            (bc_def == IntersectionType::INVALID) ||
+            (ca_def == IntersectionType::INVALID))
+            return true;
+            
+        // If here, the triangles do not intersection one each other
+        // or they do in a conformal way
+        return false;
+    }
+
+
+// ================>
+// FINE AGGIUNTE MIE
 
 }   // namespace core
 }   // namespace fdapde

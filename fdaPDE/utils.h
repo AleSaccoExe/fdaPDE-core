@@ -29,5 +29,6 @@
 #include "utils/integration/integrator.h"
 #include "utils/integration/integrator_tables.h"
 #include "utils/IO/csv_reader.h"
+#include "utils/intersection.h"
 
 #endif   // __FDAPDE_UTILS_MODULE_H__

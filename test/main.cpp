@@ -18,6 +18,7 @@
 // include eigen now to avoid possible linking errors
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
+/*
 
 // utils
 #include "src/scalar_field_test.cpp"
@@ -41,6 +42,9 @@
 #include "src/optimization_test.cpp"
 //splines
 #include "src/spline_test.cpp"
+*/
+#include "src/intersection_test.cpp"
+
 
 int main(int argc, char** argv) {
     // start testing
