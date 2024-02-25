@@ -76,7 +76,7 @@ double getTriArea2d(const Eigen::Vector2d & A,
 std::tuple<Line2Plane, Point2Seg, double> intSegPlane
         (const Eigen::Vector3d & Q, const Eigen::Vector3d & R, const Eigen::Vector3d & N, const double & D)
     {
-        double TOLL = 1.0e-16;
+        double TOLL = DOUBLE_TOLERANCE;
         auto l2p = Line2Plane::INCIDENT; 
         auto p2s = Point2Seg::ONVERTEX;
         double t;
@@ -147,7 +147,7 @@ std::tuple<Line2Plane, Point2Seg, double> intSegPlane
 IntersectionType intSegSeg2d(const Eigen::Vector2d & q1, 
         const Eigen::Vector2d & r1, const Eigen::Vector2d & q2, const Eigen::Vector2d & r2)
     {
-        double TOLL = 1.0e-16;
+        double TOLL = DOUBLE_TOLERANCE;
         // Compute signed area of the triangles q1r1q2, q1r1r2, q2r2q1, q2r2r1
         auto q1r1q2 = getTriArea2d(q1,r1,q2);
         auto q1r1r2 = getTriArea2d(q1,r1,r2);
@@ -278,7 +278,7 @@ IntersectionType intSegSeg2d(const Eigen::Vector2d & q1,
 Point2Tri inTri2d(const Eigen::Vector2d & p, 
         const Eigen::Vector2d & a, const Eigen::Vector2d & b, const Eigen::Vector2d & c)
     {
-        double TOLL = 1e-16;
+        double TOLL = DOUBLE_TOLERANCE;
         // Compute signed area of the triangle pab, pbc and pac
         auto pab = getTriArea2d(p,a,b);
         auto pbc = getTriArea2d(p,b,c);
@@ -399,7 +399,7 @@ IntersectionType intSegTri(const Eigen::Vector3d & Q, const Eigen::Vector3d & R,
 Point2Tri inTri3d(const Eigen::Vector3d & P, 
         const Eigen::Vector3d & A, const Eigen::Vector3d & B, const Eigen::Vector3d & C)
     {
-        double TOLL = 1.0e-16;
+        double TOLL = DOUBLE_TOLERANCE;
         // Compute the normal to the triangle and the RHS 
         // of the equation of the plane the triangle lies in
 
@@ -432,6 +432,20 @@ Point2Tri inTri3d(const Eigen::Vector3d & P,
         
         // Check belonging in 2D
         return inTri2d(p,a,b,c);
+    }
+
+
+    // check the intersection of two bounding boxex identified by their NE and SW points
+    template<int N>
+    bool boxes_intersection(const std::pair<SVector<N>, SVector<N>> & b1, const std::pair<SVector<N>, SVector<N>> & b2)
+    {
+        for (int i = 0; i < N; ++i) {
+            if (b1.second[i] < b2.first[i] || 
+                b2.second[i] < b1.first[i]) {
+                return false;
+            }
+        }
+        return true;   
     }
 
 

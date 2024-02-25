@@ -42,8 +42,10 @@
 #include "src/optimization_test.cpp"
 //splines
 #include "src/spline_test.cpp"
-*/
+
 #include "src/intersection_test.cpp"
+*/
+#include "src/intersection_on_mesh_test.cpp"
 
 
 int main(int argc, char** argv) {
