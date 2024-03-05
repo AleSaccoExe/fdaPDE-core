@@ -23,6 +23,8 @@
 #include <set>
 #include <unordered_set>
 #include <vector>
+#include <fstream>
+#include <string>
 using fdapde::core::Element;
 using fdapde::core::Mesh;
 
@@ -35,9 +37,9 @@ using namespace fdapde::core;
 using namespace std;
 TEST(ProvaLoadingMesh, Prova_1)
 {
-    MeshLoader<Mesh<2, 2>> meshloader;
+    MeshLoader<Mesh<2, 3>> meshloader("surface");
 
-    BoundingBoxes<2, 2> bb(meshloader.mesh);
+    StructuredGridSearch bb(meshloader.mesh);
     /*
     auto global_bb = bb.get_global_bounding_box();
     std::cout<<global_bb.first<<std::endl;
@@ -50,8 +52,43 @@ TEST(ProvaLoadingMesh, Prova_1)
     const auto & el = meshloader.mesh.element(el_id_test);
     
     bool do_intersect = false;
-    //for(unsigned el_id : neighbouring_elements)
-    //    do_intersect = do_intersect || el.intersection(meshloader.mesh.element(el_id));
+    for(unsigned el_id : neighbouring_elements)
+        do_intersect = do_intersect || el.intersection(meshloader.mesh.element(el_id));
+
+    const auto & nodes = meshloader.mesh.nodes();
+    const auto & elems = meshloader.mesh.elements();
+    unsigned n_nodes = meshloader.mesh.n_nodes();
+    unsigned n_elements = meshloader.mesh.n_elements();
+
+    std::string nodes_file_name = "../../../meshes/nodes.txt";
+    std::string elems_file_name = "../../../meshes/elements.txt";
+
+    // Apri il file di output
+    std::ofstream nodes_file(nodes_file_name);
+    std::ofstream elems_file(elems_file_name);
+
+    if (nodes_file.is_open()) {
+        // Scrivi i dati della matrice nel file
+        nodes_file << nodes << endl;
+
+        // Chiudi il file
+        nodes_file.close();
+    }
+    else{
+        std::cout<<"file non aperto\n";
+    }
+
+    if (elems_file.is_open()) {
+        // Scrivi i dati della matrice nel file
+        elems_file << elems << endl;
+
+        // Chiudi il file
+        elems_file.close();
+    }
+    else{
+        std::cout<<"file non aperto\n";
+    }
+
 
     EXPECT_FALSE(do_intersect);
 }

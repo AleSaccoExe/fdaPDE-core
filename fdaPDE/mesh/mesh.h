@@ -193,6 +193,10 @@ template <int M, int N> class Mesh {
         n_neighbors_per_element = ct_nneighbors(M),
         n_elements_per_facet = 2
     };
+
+    // Mesh<M, N>& simplify() {
+
+// }
 };
 
 // implementative details
@@ -225,6 +229,9 @@ Mesh<M, N>::Mesh(const DMatrix<double>& nodes, const DMatrix<int>& elements, con
             if (it != visited.end()) {
                 // update face to element bounding
                 facet_to_element_[it->second][1] = i;
+
+                // element_to_facet_[i] = it->second; /// ?????????????
+
                 // update neighboring informations (each face is shared by two, and only two, adjacent elements)
                 for (int h = 0; h < n_elements_per_facet; ++h) {
                     int element_id = facet_to_element_[it->second][h];
@@ -250,7 +257,7 @@ Mesh<M, N>::Mesh(const DMatrix<double>& nodes, const DMatrix<int>& elements, con
                 facet_to_element_[n_facets_].insert(facet_to_element_[n_facets_].end(), {i, -1});
                 n_facets_++;
             }
-        }
+        } 
     }
     // compute edges for 3D domains
     if constexpr (is_3d<M, N>::value) {

@@ -24,6 +24,7 @@
 #include "mesh/point_location/naive_search.h"
 #include "mesh/point_location/barycentric_walk.h"
 #include "mesh/point_location/adt.h"
-#include "mesh/BoundingBoxes.h"
+#include "mesh/StructuredGridSearch.h"
+#include "mesh/Connections.h"
 
 #endif   // __FDAPDE_MESH_MODULE_H__

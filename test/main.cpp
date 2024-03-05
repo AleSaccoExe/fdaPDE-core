@@ -44,9 +44,9 @@
 #include "src/spline_test.cpp"
 
 #include "src/intersection_test.cpp"
-*/
 #include "src/intersection_on_mesh_test.cpp"
-
+*/
+#include "src/connections_test.cpp"
 
 int main(int argc, char** argv) {
     // start testing
