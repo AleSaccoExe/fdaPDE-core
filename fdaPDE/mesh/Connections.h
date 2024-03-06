@@ -39,31 +39,19 @@ public:
 //public:
 	Connections() = default;
 	template<typename Mesh>
-	Connections(const Mesh & mesh);
+	Connections(Mesh&& mesh);
 	// refresh rinumera tutti i dati contenuti nelle strutture node_to_nodes, node_to_elems
 	void refresh();
 	// non va bene: il numero di nodi che compongono una facet è noto a runtime, conviene utilizzare un array,
 	// ma come posso capire la dimensione corretta?
 
-	// vengono trovati i nodi che insistono su una faccia
-	std::unordered_set<unsigned> nodes_on_facet(const std::vector<unsigned> & facet) const;
-	// questa versione prende in input l'id della faccia
-	std::unordered_set<unsigned> nodes_on_facet(unsigned id_facet) const;
 	std::unordered_set<unsigned> nodes_involved_in_edge_collapse(const std::vector<unsigned> & facet) const;
-	// vengono trovati gli elementi che insistono su una faccia
-	std::unordered_set<unsigned> elems_on_facet(const  std::vector<unsigned> & facet) const;
-	// questa versione prende in input l'id di una faccia
-	std::unordered_set<unsigned> elems_on_facet(const unsigned id_facet) const;
-	// vengono trovate tutte le facce che hanno id_node come uno dei vertici
-	std::unordered_set<unsigned> facets_connected_to_node(const unsigned id_node) const;
+
 	// getters
 	std::unordered_set<unsigned> get_node_to_nodes(unsigned id_node) const{return node_to_nodes[id_node];}
 	std::unordered_set<unsigned> get_node_to_elems(unsigned id_node) const{return node_to_elems[id_node];}
-	std::vector<int> get_facet_to_elems(unsigned id_facet) const{return facet_to_elems.at(id_facet);}
-	std::unordered_set<unsigned> get_elem_to_facets(unsigned id_elem) const{return elem_to_facets[id_elem];}
 	std::set<unsigned> get_active_nodes() const{return active_nodes;}
 	std::set<unsigned> get_active_elements() const{return active_elements;}
-	std::unordered_set<unsigned> get_facet(unsigned id_facet) const{return facets[id_facet];}
 
 
 	// implementazione temporanea
@@ -78,9 +66,10 @@ public:
 // ===============
 
 // Costruttore 
-template<typename Mesh>
-Connections::Connections(const Mesh & mesh)
+template<typename Mesh_>
+Connections::Connections(Mesh_&& mesh) 
 {
+	using Mesh = std::decay_t<Mesh_>;
 	constexpr unsigned M = Mesh::local_dimension;
 	constexpr unsigned N = Mesh::embedding_dimension;
 	constexpr unsigned n_vertices_per_facet = Mesh::n_vertices_per_facet;
@@ -107,33 +96,9 @@ Connections::Connections(const Mesh & mesh)
 	// Loop over all elements
 	for (int id_elem = 0; id_elem < mesh.n_elements(); ++id_elem)
 	{
-		elem_to_facets.push_back({});
-		// vengono calcolate le connessioni elems-facets
-		for (int j = 0; j < facet_pattern.rows(); ++j) {
-            // construct facet
-            for (int k = 0; k < n_vertices_per_facet; ++k) { facet[k] = elements(id_elem, facet_pattern(j, k) ) ; }
-            std::sort(facet.begin(), facet.end());   // normalize wrt node ordering
-            auto it = visited.find(facet);
-            if (it != visited.end()) {
-                // update face to element bounding
-                facet_to_elems[it->second][1] = id_elem;
-                elem_to_facets[id_elem].insert(it->second); 
-                // free memory
-                visited.erase(it);
-            } else {
-                // store facet and update face to element bounding
-                // for (int k = 0; k < n_vertices_per_facet; ++k) { facets.emplace_back(facet[k]); }
-                facets.emplace_back(facet.begin(), facet.end());
-                visited.insert({facet, n_facets_});
-                facet_to_elems[n_facets_].insert(facet_to_elems[n_facets_].end(), {id_elem, -1});
-                elem_to_facets[id_elem].insert(n_facets_);
-                n_facets_++;
-            }
-        } 
-
 		active_elements.insert(id_elem);
 		// Extract element
-		auto elem = mesh.element(id_elem);
+		auto & elem = mesh.element(id_elem);
 		std::array<int, ct_nvertices(M)> node_ids = elem.node_ids();
 		// loop su tutte le coppie di vertici
 		for(unsigned i = 0; i < ct_nvertices(M); ++i)
@@ -145,7 +110,6 @@ Connections::Connections(const Mesh & mesh)
 				// inserisco la connessione node_ids[i] - node_ids[j] in node_to_nodes
 				node_to_nodes[node_ids[i]].insert(node_ids[j]);
 				node_to_nodes[node_ids[j]].insert(node_ids[i]);
-
 			}
 		}
 		
@@ -154,35 +118,6 @@ Connections::Connections(const Mesh & mesh)
 	// vanno inserite anche le facets o rimangono nella classe mesh? Se rimangono nella classe mesh
 	// posso prendere in questa classe le informazioni necessarie quando serve? Oppure non sono informazioni importanti?
 }
-
-void Connections::replace_node_in_facet(unsigned old_id, unsigned new_id, unsigned id_facet)
-{
-	facets[id_facet].erase(old_id);
-	facets[id_facet].insert(new_id);
-}
-
-
-std::unordered_set<unsigned> Connections::facets_connected_to_node(const unsigned id_node) const
-{
-	SetType ret_facets; // il set in output
-	// ho il nodo, quindi prendo gli elementi connessi al nodo
-	SetType id_elems = node_to_elems.at(id_node);
-	// per ogni elemento vedo quali sono le facce che lo compongono
-	for(unsigned id_elem : id_elems)
-	{
-		// vengono prese le facce che formano l'elemento
-		SetType id_facets = elem_to_facets.at(id_elem);
-		// vengono controllate tutte le facce:
-		// se una faccia ha un nodo con id uguale a id_node, questa viene inserita nel set in output
-		for(unsigned id_facet : id_facets){
-			auto nodes = facets.at(id_facet);
-			if(nodes.find(id_node) != nodes.end())
-				ret_facets.insert(id_facet);
-		}
-	}
-	return ret_facets;
-}
-
 
 
 void Connections::refresh()
@@ -276,21 +211,7 @@ void Connections::erase_elems_in_node_to_elems(const std::vector<Element> & to_r
 	}
 }
 
-std::unordered_set<unsigned> Connections::nodes_on_facet(const std::vector<unsigned> & facet) const
-{
-	std::unordered_set<unsigned> conn_nodes = node_to_nodes[facet[0]];
-	for(unsigned i = 1; i < facet.size(); ++i)
-		std::set_intersection(conn_nodes.begin(), conn_nodes.end(), 
-			node_to_nodes[facet[i]].begin(), node_to_nodes[facet[i]].end(),
-			std::inserter(conn_nodes, conn_nodes.begin()));
-	return conn_nodes;
-}
 
-std::unordered_set<unsigned> Connections::nodes_on_facet(unsigned id_facet) const
-{
-	auto facet = facets[id_facet];
-	return nodes_on_facet({facet.begin(), facet.end()});
-}
 
 std::unordered_set<unsigned> Connections::nodes_involved_in_edge_collapse(const std::vector<unsigned> & facet) const
 {
@@ -302,24 +223,6 @@ std::unordered_set<unsigned> Connections::nodes_involved_in_edge_collapse(const 
 	for(auto node_id : facet)
 		conn_nodes.erase(node_id);
 	return conn_nodes;
-}
-
-
-std::unordered_set<unsigned> Connections::elems_on_facet(const std::vector<unsigned> & facet) const
-{
-	SetType conn_elems = node_to_elems.at(facet[0]);
-	for(unsigned i = 0; i < facet.size(); ++i)
-		std::set_intersection(conn_elems.begin(), conn_elems.end(), 
-			node_to_elems[facet[i]].begin(), node_to_elems[facet[i]].end(),
-			std::inserter(conn_elems, conn_elems.begin()));
-	return conn_elems;
-}
-
-
-std::unordered_set<unsigned> Connections::elems_on_facet(const unsigned id_facet) const
-{
-	auto facet = facets[id_facet];
-	return elems_on_facet({facet.begin(), facet.end()});
 }
 
 std::unordered_set<unsigned> Connections::replace_node_in_node_to_nodes(unsigned old_id, unsigned new_id)
