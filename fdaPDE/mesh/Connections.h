@@ -3,49 +3,80 @@
 
 #include "mesh.h"
 
+/*
+COMMENTI GENERALI:
+Per ora una facet è un vwttore di nodi. Si può pensare di utilizzare un array, ma in questo caso 
+devo prendere il numero di vertici per faccia dalla mesh.
+Poi si può pensare di spostare il vettore di facce dalla classe mesh in questa classe. E allora tutti
+i metodi che prendono in input una faccia rappresentata come vettore degli id dei suoi vertici possono essere
+riscritti prendendo in input un solo unsigned (l'id della faccia).
+*/
+
 namespace fdapde{
 namespace core{
 
 
 class Connections{
 	using ConnectionsType = std::vector<std::unordered_set<unsigned>>;
+	// using FacetType = std::vector<unsigned>;
 	using SetType = std::unordered_set<unsigned>;
 private:
-	// comincio l'implementazione utilizzando dei vettori. Un elemento inattivo semplicemente non
-	// sarà contenuto nelle mappe
 	ConnectionsType node_to_nodes;
 	ConnectionsType node_to_elems;
+	// Da utilizzare per tenere conto delle facce che non possono essere più contratte
+	// dopo aver utilizzato il metodo collapse_facet
+	std::unordered_map<std::set<int>, unsigned, std_set_hash<int>> facets;
 
+	// da eliminare e tenere dentro al metodo simplify?
 	std::set<unsigned> active_nodes;
 	std::set<unsigned> active_elements;
 
-	// std::vector<unsigned> facets {};
-	ConnectionsType facets {};
-    std::unordered_map<unsigned, std::vector<int>> facet_to_elems {};   // map from facet id to elements insisting on it
-    ConnectionsType elem_to_facets {}; // COME FARE PER CALCOLARE A COMPILE TIME IL NUMERO DI FACCE?
-    int n_facets_ = 0;
-
-public:
 	// metodi privati
-	// modifica le connessioni nodo-nodo in modo da rimpiazzare il nodo id_old con il nodo id_new:
-	// i nodi connessi a id_old saranno ora connessi a id_new
+	// da rivedere
 	std::unordered_set<unsigned> replace_node_in_node_to_nodes(unsigned , unsigned , const std::unordered_set<unsigned>& involved);
-	std::unordered_set<unsigned> replace_node_in_node_to_nodes(unsigned old_id, unsigned new_id);
+	// i nodi connessi a id_old vengono connessi invece a id_new
+	void replace_node_in_node_to_nodes(unsigned old_id, unsigned new_id);
+	// a new_id vengono aggiunti gli elementi che sono connessi a old_id
+	// attenzione: si suppone che durante una contrazione, gli elementi da eliminare siano già stati eliminati
 	std::unordered_set<unsigned> replace_node_in_node_to_elems(unsigned old_id, unsigned new_id);
-	void replace_node_in_facet(unsigned old_id, unsigned new_id, unsigned id_facet);
+
 	template<typename Element>
 	void erase_elems_in_node_to_elems(const std::vector<Element> & to_remove); // HA SENSO??
+	// il metodo aggiorna facets supponendo di contrarre l'input facet
+	// nel std::pair di output vengono forniti: 
+	// 1) gli id delle facce che vengono eliminate dalla contrazione
+	// 2) gli id delle facce che vengono modificate dalla contrazione
+	template<typename FacetType>
+	std::pair<SetType, SetType> update_facets(const FacetType facet);
 
-//public:
+public:
 	Connections() = default;
 	template<typename Mesh>
 	Connections(Mesh&& mesh);
 	// refresh rinumera tutti i dati contenuti nelle strutture node_to_nodes, node_to_elems
 	void refresh();
-	// non va bene: il numero di nodi che compongono una facet è noto a runtime, conviene utilizzare un array,
-	// ma come posso capire la dimensione corretta?
 
-	std::unordered_set<unsigned> nodes_involved_in_edge_collapse(const std::vector<unsigned> & facet) const;
+	// implementazione temporanea dei metodi che trovano connessioni di vario tipo. Questa implementazione 
+	// suppone che le facce siano contenute nella classe mesh
+
+	// intersezione dei nodi collegati ai nodi in facet. 
+	template<typename FacetType>
+	std::unordered_set<unsigned> nodes_on_facet(const FacetType & facet) const;
+	// trova i nodi che sono legati ad almeno due vertici della faccia
+	// template<typename FacetType> 
+	// std::unordered_set<unsigned> nodes_attached_to_facet(const FacetType facet) const;
+	// unione dei nodi collegati ai nodi in facet
+	template<typename FacetType>
+	std::unordered_set<unsigned> nodes_involved_in_collapse(const FacetType & facet) const; 
+	template<typename FacetType>
+	std::unordered_set<unsigned> elems_on_facet(const FacetType & facet) const;
+	template<typename FacetType>
+	std::unordered_set<unsigned> elems_modified_in_collapse(const FacetType & facet) const;
+	// vengono presi i nodi connessi a id_node su due livelli di profondità
+	std::unordered_set<unsigned> extended_node_patch(unsigned id_node) const;
+
+	template<typename Element>
+	std::unordered_set<unsigned> element_patch(const Element & elem) const;
 
 	// getters
 	std::unordered_set<unsigned> get_node_to_nodes(unsigned id_node) const{return node_to_nodes[id_node];}
@@ -55,9 +86,8 @@ public:
 
 
 	// implementazione temporanea
-	// template<typename Element>
-	// void collapse_facet(const unsigned id_facet, const std::vector<Element> & to_remove);
-
+	template<typename Element, typename FacetType>
+	void collapse_facet(const FacetType & facet, const std::vector<Element> & to_remove);
 
 };
 
@@ -67,26 +97,20 @@ public:
 
 // Costruttore 
 template<typename Mesh_>
-Connections::Connections(Mesh_&& mesh) 
+Connections::Connections(Mesh_&& mesh)
 {
 	using Mesh = std::decay_t<Mesh_>;
 	constexpr unsigned M = Mesh::local_dimension;
 	constexpr unsigned N = Mesh::embedding_dimension;
-	constexpr unsigned n_vertices_per_facet = Mesh::n_vertices_per_facet;
-	constexpr unsigned n_elements_per_facet = Mesh::n_elements_per_facet;
 	constexpr unsigned n_vertices = Mesh::n_vertices;
 	const auto & elements = mesh.elements();
 	unsigned n_nodes = mesh.n_nodes();
 	unsigned n_elements = mesh.n_elements();
+	unsigned n_facets = mesh.n_facets();
 
-	// da utilizzare per la costruzione delle connessioni facce-elemento
-	auto facet_pattern = combinations<n_vertices_per_facet, n_vertices>();
-    std::unordered_map<std::array<int, n_vertices_per_facet>, int, std_array_hash<int, n_vertices_per_facet>> visited;
-    std::array<int, n_vertices_per_facet> facet;
     // vinene riservata memoria per i container
 	node_to_nodes.reserve(n_nodes);
 	node_to_elems.reserve(n_elements);
-	elem_to_facets.reserve(n_elements);
 	for(unsigned id_node = 0; id_node < n_nodes; ++id_node)
 	{
 		node_to_elems.push_back({});
@@ -98,7 +122,7 @@ Connections::Connections(Mesh_&& mesh)
 	{
 		active_elements.insert(id_elem);
 		// Extract element
-		auto & elem = mesh.element(id_elem);
+		const auto & elem = mesh.element(id_elem);
 		std::array<int, ct_nvertices(M)> node_ids = elem.node_ids();
 		// loop su tutte le coppie di vertici
 		for(unsigned i = 0; i < ct_nvertices(M); ++i)
@@ -114,10 +138,128 @@ Connections::Connections(Mesh_&& mesh)
 		}
 		
 	}
+
+	// vengono aggiunte le facce con i loro id
+	for(unsigned id_facet = 0; id_facet < n_facets; ++id_facet){
+		// si può utilizzare l'iteratore definito per facets?
+		auto node_ids = mesh.facet(id_facet).node_ids();
+		facets[{node_ids.begin(), node_ids.end()}] = id_facet;
+	}
+
 	// DOMANDA:
 	// vanno inserite anche le facets o rimangono nella classe mesh? Se rimangono nella classe mesh
 	// posso prendere in questa classe le informazioni necessarie quando serve? Oppure non sono informazioni importanti?
 }
+
+template<typename FacetType>
+std::unordered_set<unsigned> Connections::nodes_on_facet(const FacetType & facet) const
+{
+	// intersezione delle connessioni per ogni nodo in facet
+	std::unordered_set<unsigned> conn_nodes = node_to_nodes[facet[0]];
+	for(unsigned i = 1; i < facet.size(); ++i){
+		for (auto it = conn_nodes.begin(); it != conn_nodes.end();) {
+		    if (!node_to_nodes[facet[i]].count(*it)) { it = conn_nodes.erase(it); }
+		    else              { ++it; }
+		}
+	}
+	return conn_nodes;
+}
+
+template<typename FacetType>
+std::unordered_set<unsigned> Connections::nodes_involved_in_collapse(const FacetType & facet) const
+{
+	std::unordered_set<unsigned> conn_nodes;
+	for(unsigned id_node : facet){
+		const auto & tmp_conn = node_to_nodes[id_node];
+		conn_nodes.insert(tmp_conn.begin(), tmp_conn.end());
+	}
+	for(unsigned id_node : conn_nodes)
+		conn_nodes.erase(id_node);
+	return conn_nodes;
+}
+
+template<typename FacetType>
+std::unordered_set<unsigned> Connections::elems_on_facet(const FacetType & facet) const
+{
+	// intersezione degli elementi connessi ai nodi di facet
+	std::unordered_set<unsigned> conn_elems = node_to_elems[facet[0]];
+	for(unsigned i = 1; i < facet.size(); ++i){
+		for (auto it = conn_elems.begin(); it != conn_elems.end();) {
+		    if (!node_to_elems[facet[i]].count(*it)) { it = conn_elems.erase(it); }
+		    else              { ++it; }
+		}
+	}
+	return conn_elems;
+}
+
+template<typename FacetType>
+std::unordered_set<unsigned> Connections::elems_modified_in_collapse(const FacetType & facet) const
+{
+	auto to_erase = elems_on_facet(facet);
+	// unione di tutti gli elementi collegati ai nodi di facet
+	std::unordered_set<unsigned> conn_elems;
+	for(unsigned id_node : facet){
+		const auto & tmp_conn = node_to_elems[id_node];
+		conn_elems.insert(tmp_conn.begin(), tmp_conn.end());
+	}
+	for(unsigned id_elem : to_erase)
+		conn_elems.erase(id_elem);
+	return conn_elems;
+}
+
+std::unordered_set<unsigned> Connections::extended_node_patch(unsigned id_node) const
+{
+	std::unordered_set<unsigned> conn_nodes = node_to_nodes[id_node];
+	const auto & tmp_set1 = node_to_nodes[id_node];
+	for(unsigned id : tmp_set1){
+		const auto & tmp_set2 = node_to_nodes[id];
+		conn_nodes.insert(tmp_set2.begin(), tmp_set2.end());
+	}
+	return conn_nodes;
+
+}
+
+template<typename Element>
+std::unordered_set<unsigned> Connections::element_patch(const Element & elem) const
+{
+	auto node_ids = elem.node_ids();
+	std::unordered_set<unsigned> conn_elems;
+	for(unsigned id_node : node_ids){
+		const auto & tmp_set = node_to_elems[id_node];
+		conn_elems.insert(tmp_set.begin(), tmp_set.end());
+	}
+	conn_elems.erase(elem.ID());
+	return conn_elems;
+}
+
+/*
+template<typename FacetType> 
+std::unordered_set<unsigned> Connections::nodes_attached_to_facet(const FacetType facet) const
+{
+	std::unordered_set<unsigned> conn_nodes;
+	// sperando che il metodo size() di facet sia constexpr
+	// auto facet_pattern = combinations<facet.size(), 2>();
+	constexpr unsigned size = facet.size();
+	auto facet_pattern = combinations<size, 2>();
+
+	for(unsigned i = 0; i < facet_pattern.rows(); ++i)
+	{
+		std::unordered_set<unsigned> tmp_intersection;
+		// vengono presi i set connessi a una coppia di nodi in facet
+		const auto & node_set_1 = node_to_nodes[facet[facet_pattern(i, 0)]];
+		const auto & node_set_2 = node_to_nodes[facet[facet_pattern(i, 1)]];
+		// viene fatta l'intersezione dei due set
+		for (unsigned id_node : node_set_1){
+    		if (node_set_2.count(id_node)) { tmp_intersection.insert(id_node); }
+		}
+		// l'intersezione è posizionata in conn_nodes
+		conn_nodes.insert(tmp_intersection.begin(), tmp_intersection.end());
+	}
+	
+	return conn_nodes;
+}
+*/
+
 
 
 void Connections::refresh()
@@ -181,19 +323,32 @@ std::unordered_set<unsigned> Connections::replace_node_in_node_to_nodes(unsigned
 	return old_node_to_nodes;
 }
 
+void Connections::replace_node_in_node_to_nodes(unsigned old_id, unsigned new_id)
+{
+	active_nodes.erase(old_id);
+	auto & old_conn = node_to_nodes[old_id];
+	for(unsigned id_node : old_conn)
+	{
+		node_to_nodes[new_id].insert(id_node);
+		node_to_nodes[id_node].erase(old_id);
+		node_to_nodes[id_node].insert(new_id);
+	}
+	node_to_nodes[new_id].erase(new_id);
+}
+
 
 std::unordered_set<unsigned> Connections::replace_node_in_node_to_elems(unsigned old_id, unsigned new_id)
 {
 	// Extract node-element connections for newId
-	std::unordered_set<unsigned> old_node_to_elems = node_to_elems[new_id];
-	
+	auto & new_id_conn = node_to_elems[new_id];
+	auto & old_id_conn = node_to_elems[old_id];
 	// Move the connected from oldId to newId
-	node_to_elems[new_id] = node_to_elems[old_id]; // ATTENZIONE: NELLA VECCHIA LIB QUI SI USAVA .insert(node2elem[oldId])
-	
+	// node_to_elems[new_id] = node_to_elems[old_id]; // ATTENZIONE: NELLA VECCHIA LIB QUI SI USAVA .insert(node2elem[oldId])
+	for(unsigned id_elem : old_id_conn)
+		node_to_elems[new_id].insert(id_elem);
 	// Make oldId inactive
 	active_nodes.erase(old_id);
-	
-	return old_node_to_elems;
+	return new_id_conn;
 }
 
 template<typename Element>
@@ -201,7 +356,7 @@ void Connections::erase_elems_in_node_to_elems(const std::vector<Element> & to_r
 {
 	for (const Element & elem : to_remove)
 	{
-		std::array<unsigned, Element::n_vertices> node_ids = elem.node_ids();
+		std::array<int, Element::n_vertices> node_ids = elem.node_ids();
 		// Set element inactive in element-node connections
 		active_elements.erase(elem.ID());
 		
@@ -212,63 +367,87 @@ void Connections::erase_elems_in_node_to_elems(const std::vector<Element> & to_r
 }
 
 
-
-std::unordered_set<unsigned> Connections::nodes_involved_in_edge_collapse(const std::vector<unsigned> & facet) const
+template<typename FacetType>
+std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connections::update_facets(const FacetType facet)
 {
-	std::unordered_set<unsigned> conn_nodes = {};
-	for(unsigned node_id : facet)
-		std::set_union(conn_nodes.begin(), conn_nodes.end(), 
-			node_to_nodes[node_id].begin(), node_to_nodes[node_id].end(),
-			std::inserter(conn_nodes, conn_nodes.begin()));
-	for(auto node_id : facet)
-		conn_nodes.erase(node_id);
-	return conn_nodes;
-}
-
-std::unordered_set<unsigned> Connections::replace_node_in_node_to_nodes(unsigned old_id, unsigned new_id)
-{
-	// old_id diventa inattivo
-	active_nodes.erase(old_id);
-	// vengono presi i nodi che sono connessi al nodo da sostituire
-	auto old_connections = node_to_nodes[old_id];
-	// un loop su tutte le connessioni
-	for(unsigned id_node : old_connections)
+	SetType to_erase;
+	SetType to_modify;
+	unsigned collapsing_node = facet[0];
+	// caso di tetraedri
+	if constexpr(facet.size() == 3)
 	{
-		// new_id deve essere connesso ai nodi che sono connessi al nodo da sostituire
-		node_to_nodes[new_id].insert(id_node);
-		// i nodi collegati al nodo da sostituire devono ora essere collegati al nodo new_id
-		node_to_nodes[id_node].erase(old_id);
-		node_to_nodes[id_node].insert(new_id);
+		for(unsigned i = 1; i < 3; ++i)
+		{
+			// questa è la faccia da controllare
+			std::set<int> tmp_facet = {facet[i]};
+			// i nodi connessi servono dentro un vettore, dato che ora devo controllare tutte le possibili
+			// coppie di nodi
+			SetType tmp_set(node_to_nodes[facet[i]].begin(), node_to_nodes[facet[i]].end());
+			tmp_set.erase(collapsing_node);
+			std::vector<unsigned> conn_nodes(tmp_set.begin(), tmp_set.end());
+			for(unsigned j = 0; j < conn_nodes.size(); ++j)
+			{
+				tmp_facet.insert(conn_nodes[j]);
+				for(unsigned k = j+1; k < conn_nodes.size(); ++k)
+				{
+					tmp_facet.insert(conn_nodes[i]);
+					if(facets.find(tmp_facet)!=facets.end())
+					{
+						unsigned old_id = facet.at(tmp_facet);
+						facet.erase(tmp_facet);
+						tmp_facet.erase(facet[i]);
+						tmp_facet.insert(collapsing_node);
+						if(facets.find(tmp_facet)!=facets.end()) // la faccia già esiste, quindi old_id deve essere eliminato
+							to_erase.insert(old_id);
+						else{
+							facets[tmp_facet] = old_id;
+							to_modify.insert(old_id);
+						}
+
+					}
+				}
+			}
+
+		}	
 	}
-	// viene tolta l'autoconnessione new_id-new_id
-	node_to_nodes[new_id].erase(new_id);
-	// DEVO VEDERE COSA RITORNARE QUI
-	return {};
+	// caso di triangoli
+	else
+	{
+		std::set<unsigned> conn_nodes(node_to_nodes[facet[1]].begin(), node_to_nodes[facet[1]].end());
+		conn_nodes.erase(collapsing_node);
+		for(unsigned id_node : conn_nodes)
+		{
+			std::set<int> tmp_facet = {facet[1]};
+			tmp_facet.insert(id_node);
+			unsigned old_id = facets.at(tmp_facet);
+			facets.erase(tmp_facet);
+			tmp_facet.erase(facet[1]);
+			tmp_facet.insert(collapsing_node);
+			if(facets.find(tmp_facet)!=facets.end())
+				to_erase.insert(old_id);
+			else{
+				facets[tmp_facet] = old_id;
+			}
+		}
+	}
+
+	return {to_erase, to_modify};
+
 }
 
-/*
-template<typename Element>
-void Connections::collapse_facet(const unsigned id_facet, const std::vector<Element> & to_remove)
+template<typename Element, typename FacetType>
+void Connections::collapse_facet(const FacetType & facet, const std::vector<Element> & to_remove)
 {
-	SetType facet_nodes = facets[id_facet];
-	// suppongo di far collassare tutta la faccia sul primo indice in facet_nodes
-	unsigned id_main_node = *facet_nodes.begin()
-	// gli elementi da eliminare devono essere solo 2
-	assert(to_remove.size() == 2);
-	// vengono eliminati gli elementi nelle connessioni
+	// la faccia viene contratta verso il primo nodo in facet
+	unsigned collapsing_node = facet[0];
 	erase_elems_in_node_to_elems(to_remove);
-	auto it =facet_nodes.begin();
-	++it;
-	for(; it != facet_nodes.end(); ++it)
-	{
-		// *it è l'id da rimpiazzare con id_main_node
-		replace_node_in_node_to_nodes(*it, id_main_node);
-		replace_node_in_node_to_elems(*it, id_main_node);
+	for(unsigned i = 1; i < facet.size(); ++i){
+		replace_node_in_node_to_nodes(collapsing_node, facet[i]);
+		replace_node_in_node_to_elems(collapsing_node, facet[i]);
 	}
-
+	for(unsigned i = 1; i < facet.size(); ++i)
+		node_to_nodes[collapsing_node].erase(facet[i]);
 }
-*/
-
 
 
 

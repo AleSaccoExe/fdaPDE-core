@@ -170,6 +170,18 @@ template <typename T> typename std::enable_if<!std::numeric_limits<T>::is_intege
 // test if Eigen matrix is empty (a zero-sized matrix is considered empty)
 template <typename Derived> bool is_empty(const Eigen::EigenBase<Derived>& matrix) { return matrix.size() == 0; }
 
+// ===========
+// AGGIUNTO IO
+
+// hash function for std::set<T>
+template <typename T> struct std_set_hash {
+    std::size_t operator()(const std::set<T>& set) const {
+      return std_container_hash<std::set<T>>()(set.begin(), set.end());
+    };
+};
+
+
+
 }   // namespace fdapde
 
 #endif   // __FDAPDE_SYMBOLS_H__
