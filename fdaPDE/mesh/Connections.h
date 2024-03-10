@@ -1,7 +1,12 @@
 #ifndef __CONNECTIONS_H__
 #define __CONNECTIONS_H__
 
-#include "mesh.h"
+#include "../utils/symbols.h"
+#include <set>
+#include <unordered_set>
+#include <vector>
+#include <algorithm>
+
 
 /*
 COMMENTI GENERALI:
@@ -46,6 +51,7 @@ private:
 	// nel std::pair di output vengono forniti: 
 	// 1) gli id delle facce che vengono eliminate dalla contrazione
 	// 2) gli id delle facce che vengono modificate dalla contrazione
+public:
 	template<typename FacetType>
 	std::pair<SetType, SetType> update_facets(const FacetType facet);
 
@@ -87,7 +93,7 @@ public:
 
 	// implementazione temporanea
 	template<typename Element, typename FacetType>
-	void collapse_facet(const FacetType & facet, const std::vector<Element> & to_remove);
+	std::pair<SetType, SetType> collapse_facet(const FacetType & facet, const std::vector<Element> & to_remove);
 
 };
 
@@ -379,7 +385,6 @@ std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connection
 		for(unsigned i = 1; i < 3; ++i)
 		{
 			// questa è la faccia da controllare
-			std::set<int> tmp_facet = {facet[i]};
 			// i nodi connessi servono dentro un vettore, dato che ora devo controllare tutte le possibili
 			// coppie di nodi
 			SetType tmp_set(node_to_nodes[facet[i]].begin(), node_to_nodes[facet[i]].end());
@@ -387,9 +392,10 @@ std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connection
 			std::vector<unsigned> conn_nodes(tmp_set.begin(), tmp_set.end());
 			for(unsigned j = 0; j < conn_nodes.size(); ++j)
 			{
-				tmp_facet.insert(conn_nodes[j]);
 				for(unsigned k = j+1; k < conn_nodes.size(); ++k)
 				{
+					std::set<int> tmp_facet = {facet[i]};
+					tmp_facet.insert(conn_nodes[j]);
 					tmp_facet.insert(conn_nodes[i]);
 					if(facets.find(tmp_facet)!=facets.end())
 					{
@@ -427,6 +433,7 @@ std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connection
 				to_erase.insert(old_id);
 			else{
 				facets[tmp_facet] = old_id;
+				to_modify.insert(old_id);
 			}
 		}
 	}
@@ -436,17 +443,20 @@ std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connection
 }
 
 template<typename Element, typename FacetType>
-void Connections::collapse_facet(const FacetType & facet, const std::vector<Element> & to_remove)
+std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connections::collapse_facet(const FacetType & facet, 
+	const std::vector<Element> & to_remove)
 {
 	// la faccia viene contratta verso il primo nodo in facet
 	unsigned collapsing_node = facet[0];
+	auto facets_info = update_facets(facet);
 	erase_elems_in_node_to_elems(to_remove);
 	for(unsigned i = 1; i < facet.size(); ++i){
-		replace_node_in_node_to_nodes(collapsing_node, facet[i]);
-		replace_node_in_node_to_elems(collapsing_node, facet[i]);
+		replace_node_in_node_to_nodes(facet[i], collapsing_node);
+		replace_node_in_node_to_elems(facet[i], collapsing_node);
 	}
 	for(unsigned i = 1; i < facet.size(); ++i)
 		node_to_nodes[collapsing_node].erase(facet[i]);
+	return facets_info;
 }
 
 

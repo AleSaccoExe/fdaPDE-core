@@ -30,6 +30,7 @@
 #include "reference_element.h"
 #include "point_location/point_location_base.h"
 #include "point_location/adt.h"
+#include "connections.h"
 
 namespace fdapde {
 namespace core {
@@ -193,10 +194,9 @@ template <int M, int N> class Mesh {
         n_neighbors_per_element = ct_nneighbors(M),
         n_elements_per_facet = 2
     };
-
-    // Mesh<M, N>& simplify() {
-
-// }
+    // prima versione:
+    // in input gli id delle facce da contrarre
+    Mesh<M, N> simplify(std::unordered_set<unsigned> facet_ids) const;
 };
 
 // implementative details
@@ -500,6 +500,70 @@ typedef Mesh<2, 2> Mesh2D;
 typedef Mesh<3, 3> Mesh3D;
 typedef Mesh<2, 3> SurfaceMesh;
 typedef Mesh<1, 2> NetworkMesh;
+
+
+template<int M, int N>
+Mesh<M, N> Mesh<M, N>::simplify(std::unordered_set<unsigned> facet_ids) const
+{
+    // inizializzata la classe connections
+    Connections connections(*this);
+
+    // vengono costruite le strutture necessarie per l'algoritmo
+    auto elements = elements_cache_;
+    std::vector<std::array<int, n_vertices_per_facet>> facets;
+    facets.reserve(n_facets_);
+    for(unsigned facet_id = 0; facet_id < n_facets_; ++facet_id)
+        facets.push_back(this->facet(facet_id).node_ids());
+
+    std::vector<Element<M, N>> elems_vec; // viene popolato di elementi da eliminare quando necessario
+    // vengono semplificati le facce in facet_ids
+    for(unsigned facet_id : facet_ids)
+    {
+        std::cout<<"parte 1"<<std::endl;
+        auto facet = facets[facet_id]; // la faccia da contrarre
+        elems_vec.clear();
+        auto elems_to_remove_ids = connections.elems_on_facet(facet);
+        auto elems_to_modify_ids = connections.elems_modified_in_collapse(facet);
+        for(unsigned elem_id : elems_to_remove_ids)
+            elems_vec.push_back(elements[elem_id]);
+        std::cout<<"parte 2"<<std::endl;
+        auto facets_pair = connections.collapse_facet(facet, elems_vec);
+        std::cout<<"parte 3"<<std::endl;
+        // vengono cambiati gli id dei vertici degli elementi modificati durante il collapse
+        for(unsigned elem_id : elems_to_modify_ids)
+            // questo metodo trova il nodo con id in facet[1:end] e lo sostituisce con il nodo facet[0]
+            elements[elem_id].find_and_change_node(facet);
+        // vengono modificati gli id dei vertici delle facce modificate durante il collapse
+
+        std::cout<<"facce da eliminare"<<std::endl;
+        for(unsigned j : facets_pair.first)
+            std::cout<<j<<" ";
+        std::cout<<std::endl;
+         std::cout<<"facce da modificare"<<std::endl;
+        for(unsigned j : facets_pair.second)
+            std::cout<<j<<" ";
+        std::cout<<std::endl;
+        std::cout<<"parte 4"<<std::endl;
+        for(unsigned facet_to_modify_id : facets_pair.second){
+            auto & facet_to_modify = facets[facet_to_modify_id];
+            for(int i = 0; i < n_vertices_per_facet; ++i)
+                for(int j = 1; j < n_vertices_per_facet; ++j)
+                    if(facet_to_modify[i] == facet[j]){  facet_to_modify[i] = facet[0]; }
+        }
+        std::cout<<"parte 5"<<std::endl;
+        // vengono eliminate dal set le facce che sono state eliminate dopo il collapse
+        for(unsigned facet_to_erase_id : facets_pair.first)
+            facet_ids.erase(facet_to_erase_id);
+    }
+    // viene ora ricostruita la mesh
+    auto active_elems = connections.get_active_elements();
+    auto active_nodes = connections.get_active_nodes();
+    
+    return *this;
+
+}
+
+
   
 }   // namespace core
 }   // namespace fdapde
