@@ -186,7 +186,7 @@ std::unordered_set<unsigned> Connections::nodes_involved_in_collapse(const Facet
 
 template<typename FacetType>
 std::unordered_set<unsigned> Connections::elems_on_facet(const FacetType & facet) const
-{
+{/*
 	// intersezione degli elementi connessi ai nodi di facet
 	std::unordered_set<unsigned> conn_elems = node_to_elems[facet[0]];
 	for(unsigned i = 1; i < facet.size(); ++i){
@@ -194,7 +194,23 @@ std::unordered_set<unsigned> Connections::elems_on_facet(const FacetType & facet
 		    if (!node_to_elems[facet[i]].count(*it)) { it = conn_elems.erase(it); }
 		    else              { ++it; }
 		}
+	}*/
+	std::unordered_set<unsigned> conn_elems; // set di output
+	for(int i = 0; i < facet.size(); ++i){
+		for(int j = i+1; j < facet.size(); ++j){
+			// intersezione tra gli elementi connessi a facet[i] e quelli connessi a facet[j]
+			std::unordered_set<unsigned> tmp_set = node_to_elems[facet[i]];
+			for (auto it = tmp_set.begin(); it != tmp_set.end();) {
+	    		if (!node_to_elems[facet[j]].count(*it)) { it = tmp_set.erase(it); }
+	    		else              { ++it; }
+			}
+
+			conn_elems.insert(tmp_set.begin(), tmp_set.end());
+
+		}
 	}
+
+
 	return conn_elems;
 }
 
@@ -397,10 +413,10 @@ std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connection
 					std::set<int> tmp_facet = {facet[i]};
 					tmp_facet.insert(conn_nodes[j]);
 					tmp_facet.insert(conn_nodes[i]);
-					if(facets.find(tmp_facet)!=facets.end())
+					if(facets.find(tmp_facet)!=facets.end()) // se i tre nodi in tmp_facet formano davvero una faccia
 					{
-						unsigned old_id = facet.at(tmp_facet);
-						facet.erase(tmp_facet);
+						unsigned old_id = facets.at(tmp_facet);
+						facets.erase(tmp_facet);
 						tmp_facet.erase(facet[i]);
 						tmp_facet.insert(collapsing_node);
 						if(facets.find(tmp_facet)!=facets.end()) // la faccia già esiste, quindi old_id deve essere eliminato
