@@ -51,7 +51,6 @@ private:
 	// nel std::pair di output vengono forniti: 
 	// 1) gli id delle facce che vengono eliminate dalla contrazione
 	// 2) gli id delle facce che vengono modificate dalla contrazione
-public:
 	template<typename FacetType>
 	std::pair<SetType, SetType> update_facets(const FacetType facet);
 

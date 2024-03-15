@@ -30,6 +30,7 @@
 #include "reference_element.h"
 #include "point_location/point_location_base.h"
 #include "point_location/adt.h"
+#include "StructuredGridSearch.h"
 #include "connections.h"
 
 namespace fdapde {

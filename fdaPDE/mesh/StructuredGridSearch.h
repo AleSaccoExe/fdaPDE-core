@@ -7,8 +7,7 @@
 #include "../utils/symbols.h"
 #include "../utils/intersection.h"
 #include "mesh_utils.h"
-#include "mesh.h"
-
+#include <unordered_map>
 
 
 // idea generale: in questa classe sono contenute informazioni aggiuntive utili per trovare possibili
@@ -28,7 +27,7 @@ class StructuredGridSearch{
 		VectorType global_NE;
 		VectorType global_SW;
 		// questa variabile rappresenta dx, dy (e dz)
-		std::array<double, N> deltas = {0.0};
+		std::array<double, N> cell_size = {0.0};
 		// ogni elemento deve avere il suo bounding box e quindi un indice che rappresenta la posizione 
 		// del bounding box all'interno dela mesh.
 		// unsigned è l'indice di una cella. set<unsigned> è l'insieme degli Id degli elementi associati
@@ -41,31 +40,41 @@ class StructuredGridSearch{
 		std::unordered_map< unsigned, BoundingBoxType > boxes_map;
 		// serve per capire quando è necessario ricalcolare i bounding_box e gli indici degli elementi
 		bool to_refresh_ = false;
+
+		// private methods
+		bool check_elem_size(const Element<M, N> & elem) const;
 	public:
 
-		// costruttori
+		// constructor
 		StructuredGridSearch(const Mesh<M, N> & mesh);
 
 
 		// calcola l'indice della cella in cui cade x
 		unsigned compute_index(const SVector<N> & x) const; 
-		// trova i possibili elementi che potrebbero intersecare l'elemento el
-		// DOMANDA: HA SENSO SOLO PER N=3? 
+		// DOMANDA: HA SENSO SOLO PER N=3?
+		// Main method: given the element el, find all elements that might intersect el
 		std::unordered_set<unsigned> get_neighbouring_elements(const Element<M, N> & el) const; 
 		// vengono calcolate le coordinate, cioè la posizione della cella che contiene il punto
 		std::array<unsigned, N> compute_coordinates(const SVector<N> & x) const;
 		// aggiorna la dimensione delle celle in base al numero di celle
-		void update_deltas();
+		void update_cell_size();
 		// elimina gli elementi dati in input
 		void erase_elements(const std::set<unsigned> & el_ids);
+		// add input elements 
+		void add_elements(const std::vector<Element<M, N>> & elems);
 		// aggiorna le informazioni per gli elementi dati in input
 		// la f sinifica che non viene fatto un controllo per il refresh della struttura
 		void update_f(const std::vector<Element<M, N>> & elements);
+		// erase some elements, update informations of other elements and check if the structure
+		// has to be refreshed
+		void update(const std::vector<Element<M, N>> & elems_to_update, const std::unordered_set<unsigned> & elems_to_erase);
+		// refresh the structure: compute again cell_size, n_cells, and the index for all elements
+		void refresh(const std::vector<Element<M, N>> & elems, const std::set<unsigned> & active_elems, unsigned n_nodes); 
 
 
 		// getters
 		BoundingBoxType get_global_bounding_box() const {return std::make_pair(global_SW, global_NE);}
-		const std::array<double, N> & get_deltas() const {return deltas;}
+		const std::array<double, N> & get_cell_size() const {return cell_size;}
 		const std::array<unsigned, N> & get_n_cells() const {return n_cells;}
 		std::pair<SVector<N>, SVector<N>> get_bounding_box(unsigned el_id) const;
 		bool to_refresh() const {return to_refresh_;}
@@ -79,25 +88,26 @@ class StructuredGridSearch{
 // ===============
 
 
-// costruttore
+// constructor
 template<int M, int N>
 StructuredGridSearch<M, N>::StructuredGridSearch(const Mesh<M, N> & mesh)
 {
-	
-	// da fare: vedere tutti gli elementi della mesh in modo da calcolare dx, dy (e dz)
-	// oltre a global_NE, global_SW.
-	// poi una volta calcolati per ogni elemento bisogna calcolare il suo indice.
 	unsigned n_nodes = mesh.n_nodes();
 	unsigned n_elements = mesh.n_elements();
 
-	// adesso calcolo global_NE e global_SW
+	// global_NE, global_SW initialized
 	global_SW.setZero();
 	global_NE.setZero();
-	
-
-	for(unsigned i = 0; i < n_nodes; ++i)
+	for(unsigned j = 0; j < N; ++j)
 	{
-		for(unsigned j = 0; j < N; ++j)
+		global_SW[j] = mesh.node(0)[j];
+		global_NE[j] = mesh.node(0)[j];
+	}
+	
+	// global_NE, global_SW are computed
+	for(unsigned i = 0; i < n_nodes; ++i) // loop over all nodes
+	{
+		for(unsigned j = 0; j < N; ++j) // loop over all coordinates of node i
 		{
 			if(mesh.node(i)[j] < global_SW[j])
 				global_SW[j] = mesh.node(i)[j];
@@ -107,15 +117,14 @@ StructuredGridSearch<M, N>::StructuredGridSearch(const Mesh<M, N> & mesh)
 
 	}
 
-	// ora calcolo dx, dy (e dz)
+	// dx, dy (and dz) are computed
 
-	for(unsigned id_el = 0; id_el < n_elements; ++id_el)
+	for(unsigned id_el = 0; id_el < n_elements; ++id_el) // loop over all elements
 	{
-		for(unsigned v1 = 0; v1 < ct_nvertices(M); ++v1)
+		for(unsigned v1 = 0; v1 < ct_nvertices(M); ++v1) // loop over all edges (v1, v2)
 		{
 			for(unsigned v2 = v1 + 1; v2 < ct_nvertices(M); ++v2)
 			{
-				
 				unsigned id_v1 = mesh.elements()(id_el, v1);
 				unsigned id_v2 = mesh.elements()(id_el, v2);
 				for(unsigned i = 0; i < N; ++i)
@@ -123,31 +132,27 @@ StructuredGridSearch<M, N>::StructuredGridSearch(const Mesh<M, N> & mesh)
 					double coord_v1 =  mesh.node( id_v1 )[i];
 					double coord_v2 =  mesh.node( id_v2 )[i];
 					double diff = std::abs( coord_v1 - coord_v2 );
-					if(diff > deltas[i])
-						deltas[i] = diff;
+					if(diff > cell_size[i])
+						cell_size[i] = diff;
 				}
 				
 			}
 		}
 		
 	}
-
 	for(unsigned i = 0; i < N; ++i)
-		n_cells[i] = ( global_NE[i] - global_SW[i] )/deltas[i];
-	// aggiorno dx, dy (e dz) in base al numero di celle appena calcolato
-	update_deltas();
+		n_cells[i] = ( global_NE[i] - global_SW[i] )/cell_size[i];
+	// cell_size is updated using the computed number of cells
+	update_cell_size();
 
-	// ora calcolo l'indice di ogni elemento
-
-	for(unsigned id_el = 0; id_el < n_elements; ++id_el)
+	// compute index for all elements
+	for(unsigned id_el = 0; id_el < n_elements; ++id_el) 
 	{
 		auto bounding_box = mesh.element(id_el).bounding_box();
 		boxes_map[id_el] = bounding_box;
 		SVector<N> middle_point =  ( bounding_box.first + bounding_box.second )*0.5;
 		idx_map[compute_index(middle_point)].insert(id_el);
 	}
-	
-
 }
 
 template<int M, int N>
@@ -163,21 +168,21 @@ void StructuredGridSearch<M, N>::update_f(const std::vector<Element<M, N>> & ele
 		// Extract element index
 		if(boxes_map.find(el_id) != boxes_map.end())
 		{
-			auto bounding_box = boxes_map.at(el_id);
-			// viene calcolato il punto medio da usare poi per trovare l'indice dell'elemento
-			SVector<N> middle_point = 0.5*(bounding_box.fist + bounding_box.second);
-			unsigned idx = compute_index(middle_point); // indice dell'elemento
-			// il bounding box dell'elemento è cancellato da boxes_map
+			auto bounding_box = boxes_map.at(el_id); // get the bounding box of the element
+			// compute the middle point of the bb to get the old index of the element
+			SVector<N> middle_point = 0.5*(bounding_box.first + bounding_box.second);
+			unsigned idx = compute_index(middle_point); // old index of the element
+			// the bounding box of the element is erased and then computed again
 			boxes_map.erase(el_id);
-			// viene cancellato l'id dell'elemento da idx_map
+			// the element is erased
 			// se è tutto giusto non c'e bisogno di un controllo
 			idx_map.at(idx).erase(el_id);
-			// quindi è inserito un nuovo bounding box
+			// now the new bounding box is computed
 			auto new_bb = element.bounding_box();
-			SVector<N> new_middle_point = 0.5*(new_bb.fist + new_bb.second);
+			SVector<N> new_middle_point = 0.5*(new_bb.first + new_bb.second);
 			boxes_map[el_id] = new_bb;
-			unsigned new_idx = compute_index(new_middle_point);
-			idx_map[new_idx].insert(el_id);
+			unsigned new_idx = compute_index(new_middle_point); // compute the new index
+			idx_map[new_idx].insert(el_id); // insert it in the map
 
 		}
 		
@@ -209,10 +214,10 @@ void StructuredGridSearch<M, N>::erase_elements(const std::set<unsigned> & el_id
 }
 
 template<int M, int N>
-void StructuredGridSearch<M, N>::update_deltas()
+void StructuredGridSearch<M, N>::update_cell_size()
 {
 	for(unsigned i = 0; i < N; ++i)
-		deltas[i] = ( global_NE[i] - global_SW[i] )/n_cells[i];
+		cell_size[i] = ( global_NE[i] - global_SW[i] )/n_cells[i];
 }
 
 
@@ -221,7 +226,7 @@ std::array<unsigned, N> StructuredGridSearch<M, N>::compute_coordinates(const Ve
 {
 	std::array<unsigned, N> coordinates;
 	for(unsigned j = 0; j < N; ++j)
-		coordinates[j] =static_cast<unsigned>( floor( (x[j] - global_SW[j] )/deltas[j] ) );
+		coordinates[j] =static_cast<unsigned>( floor( (x[j] - global_SW[j] )/cell_size[j] ) );
 	return coordinates;
 }
 
@@ -235,10 +240,126 @@ unsigned StructuredGridSearch<M, N>::compute_index(const VectorType & x) const
 		unsigned m = 1;
 		for(unsigned i = 0; i < j; ++i)
 			m*=n_cells[i];
-		idx += m*static_cast<unsigned>( floor( (x[j] - global_SW[j] )/deltas[j] ) );
+		idx += m*static_cast<unsigned>( floor( (x[j] - global_SW[j] )/cell_size[j] ) );
 	}
 
 	return idx;
+}
+
+
+template<int M, int N>
+bool StructuredGridSearch<M, N>::check_elem_size(const Element<M, N> & elem) const
+{
+	double toll = 1.3;
+	// loop over all edges of the element
+	for(unsigned i = 0; i < Element<M, N>::n_vertices; ++i)
+		for(unsigned j = 1; j < Element<M, N>::n_vertices; ++j)
+		{
+			auto v_i_coords = elem.coords()[i];
+			auto v_j_coords = elem.coords()[i];
+			for(unsigned k = 0; k < N; ++k) // loop over all coordinates
+				if( std::abs(v_j_coords[k] - v_i_coords[k]) > toll*cell_size[k] )
+					return true; // return true if an edge is too long
+		}
+		return false;
+}
+
+template<int M, int N>
+void StructuredGridSearch<M, N>::update(const std::vector<Element<M, N>> & elems_to_update, 
+	const std::unordered_set<unsigned> & elems_to_erase)
+{
+	erase_elements({elems_to_erase.begin(), elems_to_erase.end()});
+	update_f(elems_to_update);
+	// check if the elements are getting too big
+	for(const auto & elem : elems_to_update)
+		to_refresh_ = to_refresh_ || check_elem_size(elem);
+
+}
+
+template<int M, int N>
+void StructuredGridSearch<M, N>::add_elements(const std::vector<Element<M, N>> & elems)
+{
+	for(const auto & elem : elems)
+	{
+		auto bounding_box = elem.bounding_box();
+		auto middle_point = 0.5*(bounding_box.first + bounding_box.second);
+		unsigned idx = compute_index(middle_point); // compute the index of the element
+		idx_map[idx].insert(elem.ID());
+		boxes_map[elem.ID()] = bounding_box;
+	}
+}
+
+template<int M, int N>
+void StructuredGridSearch<M, N>::refresh(const std::vector<Element<M, N>> & elems, 
+	const std::set<unsigned> & active_elems, unsigned n_nodes)
+{
+	
+	unsigned n_elements = active_elems.size();
+
+	// global_NE, global_SW initialized
+	global_SW.setZero();
+	global_NE.setZero();
+	unsigned tmp_id = *active_elems.begin();
+	for(unsigned j = 0; j < N; ++j)
+	{
+		global_SW[j] = elems[tmp_id].node_ids()[j];
+		global_NE[j] = elems[tmp_id].node_ids()[j];
+	}
+
+	// global_NE, global_SW are computed
+	std::unordered_set<unsigned> visited_nodes;
+	for(unsigned id_elem : active_elems) // loop over active elements
+	{
+		const auto & node_ids = elems[id_elem].node_ids(); // get the ids of the element's vertices
+		for(unsigned i = 0; i < Element<M, N>::n_vertices; ++i) // loop over all nodes of the element
+		{
+			if(visited_nodes.find(node_ids[i]) == visited_nodes.end()) // if the node was not visited
+			{
+				visited_nodes.insert(node_ids[i]);
+				for(unsigned k = 0; k < N; ++k) // loop over dimensions of the point
+				{
+					const auto & coords = elems[id_elem].coords()[i]; // get the coords of the i-th vertex of element id_elem
+					if(coords[k] < global_SW[k]) {global_SW[k] = coords[k];} // update global_SW if necessary
+					if(coords[k] > global_NE[k]) {global_NE[k] = coords[k];} // update global_NE if necessary
+				}
+			}
+		}
+	}
+
+	// dx, dy (and dz) are computed
+	for(unsigned id_el : active_elems) // loop over all active elements
+	{
+		for(unsigned v1 = 0; v1 < ct_nvertices(M); ++v1) // loop over all edges (v1, v2)
+		{
+			for(unsigned v2 = v1 + 1; v2 < ct_nvertices(M); ++v2)
+			{
+
+				auto coords_v1 = elems[id_el].coords()[v1];
+				auto coords_v2 = elems[id_el].coords()[v2];
+				for(unsigned i = 0; i < N; ++i){ // loop over dimension of the points
+					double diff = std::abs(coords_v1[i] - coords_v2[i]);
+					if( diff > cell_size[i] ) // update cell_size if necessary
+						cell_size[i] = diff;
+				}
+			}
+		}
+		
+	}
+	for(unsigned i = 0; i < N; ++i)
+		n_cells[i] = ( global_NE[i] - global_SW[i] )/cell_size[i];
+	// cell_size is updated using the computed number of cells
+	update_cell_size();
+	// idx_map has to be rebuilt from scratch
+	idx_map.clear();
+
+	// compute index for all elements
+	for(unsigned id_el = 0; id_el < n_elements; ++id_el) 
+	{
+		auto bounding_box = elems.bounding_box();
+		boxes_map[id_el] = bounding_box;
+		SVector<N> middle_point =  ( bounding_box.first + bounding_box.second )*0.5;
+		idx_map[compute_index(middle_point)].insert(id_el);
+	}
 }
 
 // per ora implemento con N=3
@@ -248,14 +369,13 @@ std::unordered_set<unsigned> StructuredGridSearch<M, N>::get_neighbouring_elemen
 	if constexpr(M == 2 && N == 2) {
        return {};
 	} else {
-	// viene calcolato il punto medio del bounding box dell'elemento
+	// compute the middle point of the element's bounding box
 	auto bounding_box = el.bounding_box();
-	// vengono calcolate le coordinate dei due punti che definiscono il bounding box
 	// PROBLEMA: QUALI TRA FIRST E SECOND SONO NE E SW??
+	// compute the coordinates of the SW and NE points of the bb
 	std::array<unsigned, N> coordinates_NE = compute_coordinates(bounding_box.second);
 	std::array<unsigned, N> coordinates_SW = compute_coordinates(bounding_box.first);
 
-	//
 		// Find intersecting boxes
 		//
 		// We scan all the cells intersecting the reference box
