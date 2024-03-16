@@ -20,6 +20,7 @@
 #include <Eigen/LU>
 #include <array>
 
+#include "hyperplane.h"
 #include "../linear_algebra/vector_space.h"
 #include "../utils/assert.h"
 #include "../utils/compile_time.h"
@@ -92,6 +93,10 @@ template <int M, int N> class Element {
     bool intersection(const Element<M, N> & other_el) const;
     // il metodo trova il nodo dell'elemento in facet[1:end] e lo sostituisce con l'id facet[0]
     void find_and_change_node(const std::array<int, M> & facet);
+    // hyperplane passing throught this element
+    HyperPlane<M, N> hyperplane() const {
+        return HyperPlane<M, N>(coords_);
+    }
     // ================>
     // FINE AGGIUNTE MIE
 };
