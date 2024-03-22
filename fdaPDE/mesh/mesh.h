@@ -522,7 +522,7 @@ Mesh<M, N> Mesh<M, N>::simplify(std::unordered_set<unsigned> facet_ids) const
     {
         auto facet = facets[facet_id]; // la faccia da contrarre
         elems_vec.clear();
-        auto elems_to_remove_ids = connections.elems_on_facet(facet);
+        auto elems_to_remove_ids = connections.elems_erased_in_collapse(facet);
         auto elems_to_modify_ids = connections.elems_modified_in_collapse(facet);
         for(unsigned elem_id : elems_to_remove_ids)
             elems_vec.push_back(elements[elem_id]);

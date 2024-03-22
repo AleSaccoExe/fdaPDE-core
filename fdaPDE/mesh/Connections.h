@@ -74,9 +74,12 @@ public:
 	template<typename FacetType>
 	std::unordered_set<unsigned> nodes_involved_in_collapse(const FacetType & facet) const; 
 	template<typename FacetType>
-	std::unordered_set<unsigned> elems_on_facet(const FacetType & facet) const;
+	std::unordered_set<unsigned> elems_erased_in_collapse(const FacetType & facet) const;
 	template<typename FacetType>
 	std::unordered_set<unsigned> elems_modified_in_collapse(const FacetType & facet) const;
+	// vengono trovati i due elementi che insistono sulla faccia
+	// template<typename FacetType>
+	// std::pair<unsigned, unsigned> elems_on_facet(const FacetType & facet) const;
 	// vengono presi i nodi connessi a id_node su due livelli di profondità
 	std::unordered_set<unsigned> extended_node_patch(unsigned id_node) const;
 
@@ -183,8 +186,23 @@ std::unordered_set<unsigned> Connections::nodes_involved_in_collapse(const Facet
 	return conn_nodes;
 }
 
+/*
 template<typename FacetType>
-std::unordered_set<unsigned> Connections::elems_on_facet(const FacetType & facet) const
+std::pair<unsigned, unsigned> Connections::elems_on_facet(const FacetType & facet) const
+{
+	auto it_facet = facet.begin();
+	auto conn_elems = node_to_elems[*it_facet];
+	for(; it_facet!= facet.end(); ++it_facet)
+		for (auto it = conn_elems.begin(); it != conn_elems.end();) {
+		    if (!node_to_elems[*it_facet].count(*it)) { it = conn_elems.erase(it); }
+		    else              { ++it; }
+		}
+	assert(conn_elems.size()==2);
+}
+*/
+
+template<typename FacetType>
+std::unordered_set<unsigned> Connections::elems_erased_in_collapse(const FacetType & facet) const
 {/*
 	// intersezione degli elementi connessi ai nodi di facet
 	std::unordered_set<unsigned> conn_elems = node_to_elems[facet[0]];
@@ -216,7 +234,7 @@ std::unordered_set<unsigned> Connections::elems_on_facet(const FacetType & facet
 template<typename FacetType>
 std::unordered_set<unsigned> Connections::elems_modified_in_collapse(const FacetType & facet) const
 {
-	auto to_erase = elems_on_facet(facet);
+	auto to_erase = elems_erased_in_collapse(facet);
 	// unione di tutti gli elementi collegati ai nodi di facet
 	std::unordered_set<unsigned> conn_elems;
 	for(unsigned id_node : facet){
@@ -227,6 +245,7 @@ std::unordered_set<unsigned> Connections::elems_modified_in_collapse(const Facet
 		conn_elems.erase(id_elem);
 	return conn_elems;
 }
+
 
 std::unordered_set<unsigned> Connections::extended_node_patch(unsigned id_node) const
 {
@@ -462,6 +481,7 @@ std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connection
 	const std::vector<Element> & to_remove)
 {
 	// la faccia viene contratta verso il primo nodo in facet
+	assert(facets.find({facet.begin(), facet.end()})!=facets.end());
 	unsigned collapsing_node = facet[0];
 	auto facets_info = update_facets(facet);
 	erase_elems_in_node_to_elems(to_remove);

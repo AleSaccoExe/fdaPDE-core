@@ -253,15 +253,15 @@ bool StructuredGridSearch<M, N>::check_elem_size(const Element<M, N> & elem) con
 	double toll = 1.3;
 	// loop over all edges of the element
 	for(unsigned i = 0; i < Element<M, N>::n_vertices; ++i)
-		for(unsigned j = 1; j < Element<M, N>::n_vertices; ++j)
+		for(unsigned j = i+1; j < Element<M, N>::n_vertices; ++j)
 		{
 			auto v_i_coords = elem.coords()[i];
-			auto v_j_coords = elem.coords()[i];
+			auto v_j_coords = elem.coords()[j];
 			for(unsigned k = 0; k < N; ++k) // loop over all coordinates
 				if( std::abs(v_j_coords[k] - v_i_coords[k]) > toll*cell_size[k] )
 					return true; // return true if an edge is too long
 		}
-		return false;
+	return false;
 }
 
 template<int M, int N>
