@@ -60,11 +60,13 @@ template <int M, int N> class HyperPlane {
 	offset_ = -x1.dot(normal_);
     }
     // constructors from matrix coordinates
+    
     HyperPlane(const SMatrix<N, 2>& coords) /*requires (M == 1)*/ : HyperPlane(coords.col(0), coords.col(1)) { }
     HyperPlane(const SMatrix<N, 3>& coords) /*requires (M == 2)*/ :
       HyperPlane(coords.col(0), coords.col(1), coords.col(2)) { }
     // general hyperplane constructor
-    HyperPlane(const SMatrix<N, M + 1>& coords) /*requires(M > 2)*/ : p_(coords.col(0)) {
+    /*
+    HyperPlane(const SMatrix<N, M + 1>& coords) requires(M > 2) : p_(coords.col(0)) {
         basis_ = coords.rightCols(M).colwise() - coords.col(0);
 	// basis orthonormalization via modified Gram-Schmidt method
         basis_.col(0) /= basis_.col(0).norm();
@@ -77,6 +79,7 @@ template <int M, int N> class HyperPlane {
         normal_ = basis_.fullPivLu().kernel();   // normal to the hyperplane is any element in the null space of basis_
         offset_ = -coords.col(0).dot(normal_);
     }
+    */
     // projection
     SVector<M> project_onto(const SVector<N>& x) {
         if constexpr (M == N) {

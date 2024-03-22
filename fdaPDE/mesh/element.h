@@ -94,9 +94,7 @@ template <int M, int N> class Element {
     // il metodo trova il nodo dell'elemento in facet[1:end] e lo sostituisce con l'id facet[0]
     void find_and_change_node(const std::array<int, M> & facet);
     // hyperplane passing throught this element
-    HyperPlane<M, N> hyperplane() const {
-        return HyperPlane<M, N>(coords_);
-    }
+    HyperPlane<M, N> hyperplane() const;
     // ================>
     // FINE AGGIUNTE MIE
 };
@@ -289,7 +287,11 @@ void Element<M, N>::find_and_change_node(const std::array<int, M> & facet)
                 return;
             }   
 }
-
+template<>
+HyperPlane<2, 3> Element<2, 3>::hyperplane() const
+{
+    return HyperPlane<2, 3>(coords_[0], coords_[1], coords_[2]);
+}
 
 // ================>
 // FINE AGGIUNTE MIE
