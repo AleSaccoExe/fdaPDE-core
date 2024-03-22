@@ -26,5 +26,7 @@
 #include "mesh/point_location/adt.h"
 #include "mesh/StructuredGridSearch.h"
 #include "mesh/Connections.h"
+#include "mesh/hyperplane.h"
+#include "mesh/projection.h"
 
 #endif   // __FDAPDE_MESH_MODULE_H__
