@@ -320,7 +320,7 @@ TEST(simplification_test, test_with_intersection_check)
         std::cout<<"elementi: "<<mesh_simp.n_elements()<<". Nessuna intersezione trovata\n";
 
 }
-*/
+
 
 TEST(simplification_test, only_geo)
 {
@@ -466,7 +466,24 @@ TEST(simplification_test, only_geo)
         std::cout<<pair.first<<", "<<pair.second.first<<"\n";
     for(auto pair : facets_cost)
         std::cout<<pair.first<<", "<<pair.second<<"\n";
+}
+*/ 
 
-
-
+TEST(simplification_test, only_geo)
+{
+    GeomCost geom_cost;
+    MeshLoader<Mesh<2, 3>> meshloader("surface");
+    Simplification simp(meshloader.mesh);
+    std::cout<<"nodi mesh: "<<meshloader.mesh.n_nodes()<<"\nInserire il numero di nodi\n";
+    unsigned target_nodes;
+    std::cin>>target_nodes;
+    simp.simplify(target_nodes, geom_cost);
+    std::cout<<"simplificazione finita\n";
+    auto mesh_simp = simp.build_mesh();
+    std::ofstream file_nodes("../../../meshes/nodes_simp.txt");
+    std::ofstream file_elems("../../../meshes/elems_simp.txt");
+    std::ofstream file_data("../../../meshes/data_simp.txt");
+    file_nodes<<mesh_simp.nodes();
+    file_elems<<mesh_simp.elements();
+    file_data<<simp.get_data();
 }

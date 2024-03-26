@@ -67,7 +67,8 @@ class StructuredGridSearch{
 		void update_f(const std::vector<Element<M, N>> & elements);
 		// erase some elements, update informations of other elements and check if the structure
 		// has to be refreshed
-		void update(const std::vector<Element<M, N>> & elems_to_update, const std::unordered_set<unsigned> & elems_to_erase);
+		void update(const std::vector<Element<M, N>> & elems_to_update, 
+			const std::unordered_set<unsigned> & elems_to_erase, bool refresh_check = false);
 		// refresh the structure: compute again cell_size, n_cells, and the index for all elements
 		void refresh(const std::vector<Element<M, N>> & elems, const std::set<unsigned> & active_elems, unsigned n_nodes); 
 
@@ -266,13 +267,14 @@ bool StructuredGridSearch<M, N>::check_elem_size(const Element<M, N> & elem) con
 
 template<int M, int N>
 void StructuredGridSearch<M, N>::update(const std::vector<Element<M, N>> & elems_to_update, 
-	const std::unordered_set<unsigned> & elems_to_erase)
+	const std::unordered_set<unsigned> & elems_to_erase, bool refresh_check)
 {
 	erase_elements({elems_to_erase.begin(), elems_to_erase.end()});
 	update_f(elems_to_update);
 	// check if the elements are getting too big
-	for(const auto & elem : elems_to_update)
-		to_refresh_ = to_refresh_ || check_elem_size(elem);
+	if(refresh_check)
+		for(const auto & elem : elems_to_update)
+			to_refresh_ = to_refresh_ || check_elem_size(elem);
 
 }
 

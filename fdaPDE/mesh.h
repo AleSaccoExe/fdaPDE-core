@@ -28,5 +28,6 @@
 #include "mesh/Connections.h"
 #include "mesh/hyperplane.h"
 #include "mesh/projection.h"
+#include "mesh/simplification.h"
 
 #endif   // __FDAPDE_MESH_MODULE_H__

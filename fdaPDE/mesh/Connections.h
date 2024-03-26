@@ -82,6 +82,10 @@ public:
 	// std::pair<unsigned, unsigned> elems_on_facet(const FacetType & facet) const;
 	// vengono presi i nodi connessi a id_node su due livelli di profondità
 	std::unordered_set<unsigned> extended_node_patch(unsigned id_node) const;
+	// prende gli edge di cui calcolare di nuovo il costo
+	// implementata solo la versione con M=2
+	// NOTA: come implementare la versione M=3??
+	std::set<unsigned> facets_to_update(unsigned node_id) const;
 
 	template<typename Element>
 	std::unordered_set<unsigned> element_patch(const Element & elem) const;
@@ -459,6 +463,7 @@ std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connection
 		{
 			std::set<int> tmp_facet = {facet[1]};
 			tmp_facet.insert(id_node);
+			assert(facets.find(tmp_facet)!=facets.end());
 			unsigned old_id = facets.at(tmp_facet);
 			facets.erase(tmp_facet);
 			tmp_facet.erase(facet[1]);
@@ -474,7 +479,7 @@ std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connection
 
 	return {to_erase, to_modify};
 
-}
+} // update_facets
 
 template<typename Element, typename FacetType>
 std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connections::collapse_facet(const FacetType & facet, 
@@ -494,7 +499,19 @@ std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connection
 	return facets_info;
 }
 
-
+std::set<unsigned> Connections::facets_to_update(unsigned node_id) const
+{
+	std::set<unsigned> facet_ids;
+	const auto & node_ids = node_to_nodes[node_id];
+	for(unsigned node_id2 : node_ids)
+	{
+		facet_ids.insert(facets.at({static_cast<int>(node_id), static_cast<int>(node_id2)}));
+		const auto & node_ids2 = node_to_nodes[node_id2];
+		for(unsigned node_id3 : node_ids2)
+			facet_ids.insert(facets.at({static_cast<int>(node_id2), static_cast<int>(node_id3)}));
+	}
+	return facet_ids;
+}
 
 }
 }

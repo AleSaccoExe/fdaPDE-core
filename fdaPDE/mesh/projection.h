@@ -21,13 +21,13 @@ std::vector<std::pair<int, int>> project(const std::vector<Element_> & elems,
 		bool inside_elem = false;
 		unsigned opt_id; // id della posizione ottima del dato
 		SVector<N> datum = data.row(id);
-		SVector<N> opt_pos; // la posizione ottimale del dato (da cambiare)
+		SVector<N> opt_pos; // la posizione ottimale del dato
 		for(const auto & elem : elems) // loop sugli elementi
 		{
 			SVector<N> p_datum = elem.hyperplane().project(datum); // viene proiettato il dato
 			if(elem.contains(p_datum)) // se l'elemento contiene il dato proiettato sul piano del triangolo
 			{
-				double dist = (datum - p_datum).norm(); // distanza al quadrato
+				double dist = (datum - p_datum).norm(); // distanza 
 				if(dist < opt_dist)
 				{
 					opt_dist = dist;
@@ -44,7 +44,7 @@ std::vector<std::pair<int, int>> project(const std::vector<Element_> & elems,
 		}
 		else // il dato non può essere proiettato dentro gli elementi
 		{
-			unsigned node_id1, node_id2; 
+			unsigned node_id1, node_id2;
 			opt_dist = std::numeric_limits<double>::max();
 			for(const auto & elem : elems) // loop sugli elementi
 			{
