@@ -42,6 +42,7 @@ private:
     // modifica le facce in input usando le informazioni in facet
     void modify_facets(const std::unordered_set<unsigned> & facet_ids, const FacetType & facet);
     std::vector<Element<M, N>> modify_elements(std::unordered_set<unsigned> & elem_ids, const FacetType & facet, SVector<N> new_coord) const;
+    void update_boundary(const FacetType & facet);
 public:
 	Simplification(const Mesh<M, N> & mesh);
 	template<typename CostType_>
@@ -101,7 +102,7 @@ std::vector<Element<M, N>> Simplification<M, N>::modify_elements(std::unordered_
                 if(facet[j] == node_ids[i]){
                     node_ids[i] = facet[0];
                     coords[i] = new_coord;
-        }
+        		}
         // si costruisce ora un nuovo elemento con l'id del nodo modificato
         elems.emplace_back(elem_tmp.ID(), node_ids, coords, elem_tmp.neighbors(), elem_tmp.is_on_boundary());
     }
@@ -123,16 +124,17 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, C
 	    std::map<double, SVector<N>> tmp_costs_map;
 	    auto elems_to_modify = connections_.elems_modified_in_collapse(facet);
 	    auto elems_to_erase = connections_.elems_erased_in_collapse(facet);
+	    // viene creato un vettore degli elementi involved nel collapse di facet
+        std::vector<Element<M, N>> elems_tmp1;
+        for(unsigned elem_id : elems_to_modify)
+            elems_tmp1.push_back(elems_vec_[elem_id]);
+        std::vector<Element<M, N>> elems_tmp2;
+        for(unsigned elem_id : elems_to_erase)
+            elems_tmp2.push_back(elems_vec_[elem_id]);
 	    for(auto collapse_point : collapse_points)
 	    {
-	        // viene creato un vettore degli elementi involved nel collapse di facet
-	        std::vector<Element<M, N>> elems_tmp;
-	        for(unsigned elem_id : elems_to_modify)
-	            elems_tmp.push_back(elems_vec_[elem_id]);
-	        for(unsigned elem_id : elems_to_erase)
-	            elems_tmp.push_back(elems_vec_[elem_id]);
 	        // calcolato il costo del collapse
-	        tmp_costs_map[cost_obj(elems_tmp, collapse_point)] = collapse_point;
+	        tmp_costs_map[cost_obj(elems_tmp1, elems_tmp2, collapse_point)] = collapse_point;
 	    }
 	    // ora si prende il costo minore e si controllano le intersezioni
 	    for(auto it = tmp_costs_map.begin(); it != tmp_costs_map.end(); ++it)
@@ -143,6 +145,16 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, C
 	        // e il set elems_to_erase. La classe provvede quindi a capire le possibili intersezioni date dal collapse di facet
 	        sgs_.update(elems_tmp, elems_to_erase, false);
 	        bool valid_collapse = true;
+	        // controllo sull'area dei triangoli e sulle normali:
+	        for(auto & elem : elems_tmp)
+	        {
+	        	valid_collapse = valid_collapse && elem.measure()>DOUBLE_TOLERANCE;
+	        	valid_collapse = valid_collapse && 
+	        					 ( elem.hyperplane().normal().dot(elems_vec_[elem.ID()].hyperplane().normal()) > DOUBLE_TOLERANCE );
+	        }
+	        if(valid_collapse) // si esegue il check sulle intersezioni solo se i triangoli sono validi
+	        {
+
 	        for(auto & elem : elems_tmp){
 	            auto elems_to_check = sgs_.get_neighbouring_elements(elem);
 	            for(unsigned elem_id : elems_to_check)
@@ -155,6 +167,8 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, C
 	            if(!valid_collapse)
 	                break;
 	        }
+
+	    	}
 	        // se non ci sono intersezioni si procede ad aggiungere le informazioni nelle strutture adeguate
 	        if(valid_collapse)
 	        {
@@ -175,7 +189,6 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, C
 	    sgs_.update_f(elems_tmp);
 
 	    } // if(connections_.nodes_on_facet(facet).size()==2)
-	    facet_id++;
     }
 } // compute_costs
 
@@ -202,7 +215,61 @@ std::vector<SVector<N>> Simplification<M, N>::get_collapse_points(const FacetTyp
 		}
 		SVector<M> barycentric_mid_point;
 	    barycentric_mid_point.fill(1.0 / (M + 1));
-		// collapse_points.push_back(J * barycentric_mid_point + nodes_.row(facet[0]) );
+	    // SVector<N> dai_funziona = J * barycentric_mid_point + nodes_.row(facet[0]);
+		collapse_points.emplace_back(0.5*(nodes_.row(facet[0]) + nodes_.row(facet[1])));
+		if constexpr(M == 2 && N == 3)
+		{
+			auto elem_ids1 = connections_.elems_modified_in_collapse(facet);
+			auto elem_ids2 = connections_.elems_erased_in_collapse(facet);
+			SVector<10> Q;
+			Q.setZero();
+			for(unsigned elem_id : elem_ids1)
+			{
+				SVector<3> n = elems_vec_[elem_id].hyperplane().normal(); // normale all'elemento
+				double d = -n.dot(elems_vec_[elem_id].coords()[0]);
+				// Construct matrix K
+				SVector<10> K;
+				K <<  n[0]*n[0], n[0]*n[1], n[0]*n[2], n[0]*d, n[1]*n[1], n[1]*n[2], n[1]*d, n[2]*n[2], n[2]*d, d*d;
+				Q += K;
+			}
+			for(unsigned elem_id : elem_ids2)
+			{
+				SVector<3> n = elems_vec_[elem_id].hyperplane().normal(); // normale all'elemento
+				double d = -n.dot(elems_vec_[elem_id].coords()[0]);
+				// Construct matrix K
+				SVector<10> K;
+				K <<  n[0]*n[0], n[0]*n[1], n[0]*n[2], n[0]*d, n[1]*n[1], n[1]*n[2], n[1]*d, n[2]*n[2], n[2]*d, d*d;
+				Q += 2*K;
+			}
+			Eigen::Matrix3d A;
+			A << Q[0], Q[1], Q[2], 
+				Q[1], Q[4], Q[5],
+				Q[2], Q[5], Q[7];
+				
+			// Right-hand side
+			Eigen::Vector3d b(-Q[3], -Q[6], -Q[8]);
+			
+			//
+			// Solve the linear system
+			//
+			// Exploit QR decomposition with column pivoting
+			// This choice should be a good compromise bewteen
+			// performance and accuracy
+			
+			Eigen::Vector3d x = A.colPivHouseholderQr().solve(b);
+			
+			//
+			// Check if the solution exists and return
+			//
+			// As suggested on the Eigen wiki, to know if the
+			// solution exists one may compute the relative
+			// a posteriori error and check it is below an
+			// user-defined tolerance
+			
+			auto err = (A*x - b).norm() / b.norm();
+			if (err < DOUBLE_TOLERANCE)
+				collapse_points.emplace_back(x(0), x(1), x(2));
+		}
 	}
 	// c'è un solo vertice sul bordo: è l'unico punto di contrazione
 	else if(boundary_nodes == 1)
@@ -225,6 +292,8 @@ void Simplification<M, N>::erase_facets(const std::unordered_set<unsigned> & fac
 			assert(it != costs_map_.end());
 			while(it->second.first != facet_id)
 				++it;
+			assert(it != costs_map_.end());
+			assert(it->second.first == facet_id);
 			costs_map_.erase(it);
 			facets_cost_.erase(facet_id);
 		}
@@ -242,6 +311,16 @@ void Simplification<M, N>::modify_facets(const std::unordered_set<unsigned> & fa
                 if(facet_to_modify[i] == facet[j]){  facet_to_modify[i] = facet[0]; }
     }
 
+}
+
+template<int M, int N>
+void Simplification<M, N>::update_boundary(const FacetType & facet)
+{
+	int nodes_on_boundary = 0;
+	for(unsigned node_id : facet)
+		nodes_on_boundary += boundary_(node_id);
+	if(nodes_on_boundary != 0)
+		boundary_(facet[0]) = 1;
 }
 
 
@@ -302,9 +381,9 @@ void Simplification<M, N>::simplify(unsigned n_nodes, CostType_ cost_obj)
         erase_facets(facets_pair.first);
         // e anche tutte le altre facce con costi da ricalcolare
         auto facets_to_update = connections_.facets_to_update(facet[0]);
+		modify_facets(facets_pair.second, facet);
         erase_facets({facets_to_update.begin(), facets_to_update.end()});
         // vengono modificati gli id dei vertici delle facce
-        modify_facets(facets_pair.second, facet);
         // vengono ora modificate le connessioni tra dati e elementi
         unsigned i = 0; // id del dato
         for(unsigned data_id : data_ids)
@@ -343,9 +422,13 @@ void Simplification<M, N>::simplify(unsigned n_nodes, CostType_ cost_obj)
             }
             ++i;
         }
-        // vengono trovate le facce il cui costo deve essere calcolato di nuovo
-        
+        // aggiornate le informazioni sul bordo
+        update_boundary(facet);
+        // aggiornato il costo delle facce
         compute_costs(facets_to_update, cost_obj);
+        // aggiornata la classe sgs_ (se necessario)
+        if(sgs_.to_refresh())
+        	sgs_.refresh(elems_vec_, connections_.get_active_elements(), connections_.get_active_nodes().size());
 
         // finito il collapse vengono tolti M - 1 nodi
         n_nodes_ = n_nodes_ - (M-1);

@@ -295,6 +295,7 @@ template<int M, int N>
 void StructuredGridSearch<M, N>::refresh(const std::vector<Element<M, N>> & elems, 
 	const std::set<unsigned> & active_elems, unsigned n_nodes)
 {
+	to_refresh_ = false;
 	
 	unsigned n_elements = active_elems.size();
 
@@ -355,9 +356,10 @@ void StructuredGridSearch<M, N>::refresh(const std::vector<Element<M, N>> & elem
 	idx_map.clear();
 
 	// compute index for all elements
-	for(unsigned id_el = 0; id_el < n_elements; ++id_el) 
+	boxes_map.clear();
+	for(unsigned id_el : active_elems) 
 	{
-		auto bounding_box = elems.bounding_box();
+		auto bounding_box = elems[id_el].bounding_box();
 		boxes_map[id_el] = bounding_box;
 		SVector<N> middle_point =  ( bounding_box.first + bounding_box.second )*0.5;
 		idx_map[compute_index(middle_point)].insert(id_el);

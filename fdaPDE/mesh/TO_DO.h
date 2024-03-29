@@ -138,3 +138,19 @@ simplify()
 vedere half-edge. Documentazione di cgal.
 
 */
+
+/*
+27/3/2024
+circoncentro tetraedri. Trovare una formula valido sia per 2D sia per 3D
+link per una formula nel 3D: https://www.ics.uci.edu/~eppstein/junkyard/circumcenter.html
+cgal circumcenter. Difficile da trovare il codice sorgente.
+Mettere il metodo dentro a element
+
+check per vedere se un costo ha il metodo set simplify:
+non nel core ma nell'eigen sopra:
+fdaPDE-cpp/calibration/calibration_base
+
+spostare il controllo sui tre punti dentro alla struct del costo
+
+
+*/

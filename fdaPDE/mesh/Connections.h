@@ -398,6 +398,7 @@ std::unordered_set<unsigned> Connections::replace_node_in_node_to_elems(unsigned
 template<typename Element>
 void Connections::erase_elems_in_node_to_elems(const std::vector<Element> & to_remove)
 {
+	assert(to_remove.size() == 2);
 	for (const Element & elem : to_remove)
 	{
 		std::array<int, Element::n_vertices> node_ids = elem.node_ids();
@@ -458,6 +459,7 @@ std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connection
 	else
 	{
 		std::set<unsigned> conn_nodes(node_to_nodes[facet[1]].begin(), node_to_nodes[facet[1]].end());
+		assert(conn_nodes.find(collapsing_node)!=conn_nodes.end());
 		conn_nodes.erase(collapsing_node);
 		for(unsigned id_node : conn_nodes)
 		{
@@ -476,7 +478,9 @@ std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connection
 			}
 		}
 	}
-
+	unsigned facet_id = facets.at({facet.begin(), facet.end()});
+	// to_erase.insert(facet_id);
+	facets.erase({facet.begin(), facet.end()});
 	return {to_erase, to_modify};
 
 } // update_facets

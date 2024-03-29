@@ -30,5 +30,5 @@
 #include "utils/integration/integrator_tables.h"
 #include "utils/IO/csv_reader.h"
 #include "utils/intersection.h"
-
+#include "utils/simplification_costs/geom_cost.h"
 #endif   // __FDAPDE_UTILS_MODULE_H__
