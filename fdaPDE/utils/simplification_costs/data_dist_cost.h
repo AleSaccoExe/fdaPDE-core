@@ -9,7 +9,7 @@ namespace core{
 #include "../symbols.h"
 
 
-struct data_dist_cost{
+struct DataDistCost{
 	double operator()(const std::vector<Element<2, 3>> & elems_to_modify, 
 					  const std::vector<Element<2, 3>> & elems_to_delete, 
 					  const std::vector<Element<2, 3>> & elems_modified, const SVector<3> & v, 
@@ -19,7 +19,8 @@ struct data_dist_cost{
 		for(unsigned datum_id : data_ids)
 		{
 			SVector<3> p_datum = project(elems_modified, p_simp_->get_data().row(datum_id));
-			double dist = (p_datum - data_.row(datum_id)).norm();
+			SVector<3> datum_original_position = data_.row(datum_id);
+			double dist = (p_datum - datum_original_position).norm();
 			if(dist > max_dist)
 				max_dist = dist;
 		}

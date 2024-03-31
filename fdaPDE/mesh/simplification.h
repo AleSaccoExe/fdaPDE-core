@@ -122,29 +122,34 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, A
 	    {
 	    // per ogni punto in collapse_points si calcola il costo della contrazione
 	    std::map<double, SVector<N>> tmp_costs_map;
-	    auto elems_to_modify = connections_.elems_modified_in_collapse(facet);
-	    auto elems_to_erase = connections_.elems_erased_in_collapse(facet);
+	    auto elems_to_modify_ids = connections_.elems_modified_in_collapse(facet);
+	    auto elems_to_erase_ids = connections_.elems_erased_in_collapse(facet);
 	    // viene creato un vettore degli elementi involved nel collapse di facet
-        std::vector<Element<M, N>> elems_tmp1;
-        for(unsigned elem_id : elems_to_modify)
-            elems_tmp1.push_back(elems_vec_[elem_id]);
-        std::vector<Element<M, N>> elems_tmp2;
-        for(unsigned elem_id : elems_to_erase)
-            elems_tmp2.push_back(elems_vec_[elem_id]);
+        std::vector<Element<M, N>> elems_to_modify;
+        for(unsigned elem_id : elems_to_modify_ids) {elems_to_modify.push_back(elems_vec_[elem_id]); }
+        std::vector<Element<M, N>> elems_to_erase;
+        for(unsigned elem_id : elems_to_erase_ids) {elems_to_erase.push_back(elems_vec_[elem_id]); }
+        // vengono presi i dati da proiettare
+        std::unordered_set<unsigned> data_ids;
+        for(unsigned elem_id : elems_to_erase_ids)
+            data_ids.insert(elem_to_data_[elem_id].begin(), elem_to_data_[elem_id].end());
+        for(unsigned elem_id : elems_to_modify_ids)
+            data_ids.insert(elem_to_data_[elem_id].begin(), elem_to_data_[elem_id].end());
 	    for(auto collapse_point : collapse_points)
 	    {
+	    	std::vector<Element<M, N>> elems_modified = modify_elements(elems_to_modify_ids, facet, collapse_point);
 	        // calcolato il costo del collapse
-	        double cost = (... + cost_objs(elems_tmp1, elems_tmp2, collapse_point));
+	        double cost = (... + cost_objs(elems_to_modify, elems_to_erase, elems_modified, collapse_point, data_ids));
 	        tmp_costs_map[cost] = collapse_point;
 	    }
 	    // ora si prende il costo minore e si controllano le intersezioni
 	    for(auto it = tmp_costs_map.begin(); it != tmp_costs_map.end(); ++it)
 	    {
 	        // viene creato un vettore degli elementi modificati nel collapse di facet
-	        std::vector<Element<M, N>> elems_tmp = modify_elements(elems_to_modify, facet, it->second);
+	        std::vector<Element<M, N>> elems_tmp = modify_elements(elems_to_modify_ids, facet, it->second);
 	        // ora passo a sgs il vettore di elementi elems_tmp, che è formato di elementi da modificare
 	        // e il set elems_to_erase. La classe provvede quindi a capire le possibili intersezioni date dal collapse di facet
-	        sgs_.update(elems_tmp, elems_to_erase, false);
+	        sgs_.update(elems_tmp, elems_to_erase_ids, false);
 	        bool valid_collapse = true;
 	        // controllo sull'area dei triangoli e sulle normali:
 	        for(auto & elem : elems_tmp)
@@ -181,11 +186,11 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, A
 	    }
 	    std::vector<Element<M, N>> elems_tmp; // questo vettore viene ora riempito di elementi da aggiungere
 	    // a questo punto si ripristina la classe sgs al suo stato iniziale
-	    for(unsigned elem_id : elems_to_erase) // loop sugli elementi che erano stati eliminati
+	    for(unsigned elem_id : elems_to_erase_ids) // loop sugli elementi che erano stati eliminati
 	        elems_tmp.push_back(elems_vec_[elem_id]);
 	    sgs_.add_elements(elems_tmp);
 	    elems_tmp.clear(); // ora viene riempito di elementi da modificare
-	    for(unsigned elem_id : elems_to_modify)
+	    for(unsigned elem_id : elems_to_modify_ids)
 	        elems_tmp.push_back(elems_vec_[elem_id]);
 	    sgs_.update_f(elems_tmp);
 
@@ -216,7 +221,7 @@ std::vector<SVector<N>> Simplification<M, N>::get_collapse_points(const FacetTyp
 		}
 		SVector<M> barycentric_mid_point;
 	    barycentric_mid_point.fill(1.0 / (M + 1));
-	    // SVector<N> dai_funziona = J * barycentric_mid_point + nodes_.row(facet[0]);
+	    SVector<N> mid_point = J * barycentric_mid_point + static_cast<SVector<N>>(nodes_.row(facet[0]));
 		collapse_points.emplace_back(0.5*(nodes_.row(facet[0]) + nodes_.row(facet[1])));
 		if constexpr(M == 2 && N == 3)
 		{

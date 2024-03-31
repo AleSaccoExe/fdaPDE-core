@@ -14,7 +14,9 @@ struct GeomCost{
 	// - elems: elementi involved in collapse
 	// - v: punto del collapse
 	double operator()(const std::vector<Element<2, 3>> & elems_to_modify, 
-		const std::vector<Element<2, 3>> & elems_to_delete, const SVector<3> & v) const
+					  const std::vector<Element<2, 3>> & elems_to_delete,
+					  const std::vector<Element<2, 3>> & elems_modified, const SVector<3> & v,
+					  const std::unordered_set<unsigned> & data_ids) const
 	{
 		SVector<10> Q;
 		Q.setZero();

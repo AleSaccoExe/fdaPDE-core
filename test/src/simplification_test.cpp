@@ -472,6 +472,7 @@ TEST(simplification_test, only_geo)
 TEST(simplification_test, only_geo)
 {
     GeomCost geom_cost;
+    DataDistCost data_dist_cost;
 
     // MeshLoader<Mesh<2, 3>> meshloader("surface");
     std::ifstream mesh_file("../../../meshes/pawn.inp");
