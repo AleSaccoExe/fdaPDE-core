@@ -521,7 +521,7 @@ TEST(simplification_test, only_geo)
     std::cout<<"nodi mesh: "<<n_nodes<<"\nInserire il numero di nodi\n";
     unsigned target_nodes;
     std::cin>>target_nodes;
-    std::array<double, 2> w = {0.5, 0.5};
+    std::array<double, 2> w = {0.0, 1.0};
     simp.simplify(target_nodes, w, geom_cost, data_dist_cost);
     std::cout<<"simplificazione finita\n";
     auto mesh_simp = simp.build_mesh();

@@ -10,7 +10,16 @@ namespace core{
 
 
 struct DataDistCost{
+
 	double operator()(const std::vector<Element<2, 3>> & elems_to_modify, 
+					  const std::vector<Element<2, 3>> & elems_to_delete, 
+					  const std::vector<Element<2, 3>> & elems_modified, const SVector<3> & v, 
+					  const std::unordered_set<unsigned> & data_ids ) const
+	{
+		return get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids)/max;
+	}
+
+	double get_cost(const std::vector<Element<2, 3>> & elems_to_modify, 
 					  const std::vector<Element<2, 3>> & elems_to_delete, 
 					  const std::vector<Element<2, 3>> & elems_modified, const SVector<3> & v, 
 					  const std::unordered_set<unsigned> & data_ids ) const
@@ -31,9 +40,20 @@ struct DataDistCost{
 		p_simp_ = p_simp;
 		data_ = p_simp->get_data(); 
 	}
+
+	void update_max(const std::vector<Element<2, 3>> & elems_to_modify, 
+					  const std::vector<Element<2, 3>> & elems_to_delete, 
+					  const std::vector<Element<2, 3>> & elems_modified, const SVector<3> & v, 
+					  const std::unordered_set<unsigned> & data_ids )
+	{
+		double cost = get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids);
+		if(cost > max) {max = cost;}
+	}
+
 	// Contiene le posizioni iniziali di tutti i dati
 	DMatrix<double> data_;
 	Simplification<2, 3>* p_simp_;
+	double max = 0.0;
 
 };
 

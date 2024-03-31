@@ -67,6 +67,9 @@ private:
     				 const std::unordered_set<unsigned> & data_ids,
     				 CostType_&& cost_obj) const
     { return w[0]*cost_obj(elems_to_modify, elems_to_erase, elems_modified, collapse_point, data_ids); }
+    // per gli oggetti costo vengono aggiornati i costi massimi
+    template<typename... CostTypes_>
+    void update_max_costs(const std::set<unsigned>& facet_ids, CostTypes_&&... cost_objs) const;
 public:
 	Simplification(const Mesh<M, N> & mesh);
 	template<std::size_t K, typename... Args>
@@ -134,6 +137,9 @@ std::vector<Element<M, N>> Simplification<M, N>::modify_elements(std::unordered_
 
 }
 
+// =============================
+// implementazione compute_costs
+// =============================
 template<int M, int N>
 template<std::size_t K, typename... Args>
 void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, const std::array<double, K>& w, Args&&... cost_objs)
@@ -314,6 +320,44 @@ std::vector<SVector<N>> Simplification<M, N>::get_collapse_points(const FacetTyp
 } // get_collapse_points
 
 template<int M, int N>
+template<typename... CostTypes_>
+void Simplification<M, N>::update_max_costs(const std::set<unsigned> & facet_ids, CostTypes_&&... cost_objs) const
+{
+	for(unsigned facet_id : facet_ids){
+		const auto & facet = facets_[facet_id];
+    	std::vector<SVector<N>> collapse_points = get_collapse_points(facet);
+    	// viene aggiunto un costo se: sulla faccia ci sono 2 nodi
+	    if(connections_.nodes_on_facet(facet).size()==2 && collapse_points.size() != 0)
+	    {
+	    // per ogni punto in collapse_points si calcola il costo della contrazione
+	    std::map<double, SVector<N>> tmp_costs_map;
+	    auto elems_to_modify_ids = connections_.elems_modified_in_collapse(facet);
+	    auto elems_to_erase_ids = connections_.elems_erased_in_collapse(facet);
+	    // viene creato un vettore degli elementi involved nel collapse di facet
+        std::vector<Element<M, N>> elems_to_modify;
+        for(unsigned elem_id : elems_to_modify_ids) {elems_to_modify.push_back(elems_vec_[elem_id]); }
+        std::vector<Element<M, N>> elems_to_erase;
+        for(unsigned elem_id : elems_to_erase_ids) {elems_to_erase.push_back(elems_vec_[elem_id]); }
+        // vengono presi i dati da proiettare
+        std::unordered_set<unsigned> data_ids;
+        for(unsigned elem_id : elems_to_erase_ids)
+            data_ids.insert(elem_to_data_[elem_id].begin(), elem_to_data_[elem_id].end());
+        for(unsigned elem_id : elems_to_modify_ids)
+            data_ids.insert(elem_to_data_[elem_id].begin(), elem_to_data_[elem_id].end());
+	    for(auto collapse_point : collapse_points)
+	    {
+	    	std::vector<Element<M, N>> elems_modified = modify_elements(elems_to_modify_ids, facet, collapse_point);
+	        // calcolato il costo del collapse
+	        (cost_objs.update_max(elems_to_modify, elems_to_erase, elems_modified, collapse_point, data_ids),...);
+	        
+	    }
+
+	    } // if(connections_.nodes_on_facet(facet).size()==2)
+    }
+} // update_max_costs
+
+
+template<int M, int N>
 void Simplification<M, N>::erase_facets(const std::unordered_set<unsigned> & facet_ids)
 {
 	// assert(facet_ids.size() == 2);
@@ -375,6 +419,7 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
 	// vengono calcolati i costi per ogni facet valida
 	std::set<unsigned> all_facets;
 	for(unsigned i = 0; i < facets_.size(); ++i) {all_facets.insert(i);}
+	update_max_costs(all_facets, cost_objs...);
 	compute_costs(all_facets, w, cost_objs...);
 	// viene semplificata la faccia con costo minore
 	for(auto collapse_info : costs_map_)

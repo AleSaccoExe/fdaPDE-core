@@ -17,6 +17,11 @@ struct GeomCost{
 					  const std::vector<Element<2, 3>> & elems_to_delete,
 					  const std::vector<Element<2, 3>> & elems_modified, const SVector<3> & v,
 					  const std::unordered_set<unsigned> & data_ids) const
+	{ return get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids)/max; }
+	double get_cost(const std::vector<Element<2, 3>> & elems_to_modify, 
+					  const std::vector<Element<2, 3>> & elems_to_delete,
+					  const std::vector<Element<2, 3>> & elems_modified, const SVector<3> & v,
+					  const std::unordered_set<unsigned> & data_ids) const
 	{
 		SVector<10> Q;
 		Q.setZero();
@@ -43,6 +48,17 @@ struct GeomCost{
 			+ 2*Q[3]*v[0] + 2*Q[6]*v[1] + 2*Q[8]*v[2] + Q[9];
 	}
 	void setup(Simplification<2, 3> * p_simp){}
+
+	void update_max(const std::vector<Element<2, 3>> & elems_to_modify, 
+				  const std::vector<Element<2, 3>> & elems_to_delete,
+				  const std::vector<Element<2, 3>> & elems_modified, const SVector<3> & v,
+				  const std::unordered_set<unsigned> & data_ids)
+	{
+		double cost = get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids);
+		if(cost > max) {max = cost;}
+	}
+
+	double max = 0.0;
 };
 
 }
