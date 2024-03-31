@@ -33,8 +33,8 @@ private:
     // metodi privati
 
     // calcola il costo per ogni facet
-    template<typename... Args>
-    void compute_costs(const std::set<unsigned> & facet_ids, Args&&... cost_obj);
+    template<std::size_t K, typename... Args>
+    void compute_costs(const std::set<unsigned> & facet_ids, const std::array<double, K> & w, Args&&... cost_obj);
     // trova i possibili punti per il collapse di facet
     std::vector<SVector<N>> get_collapse_points(const FacetType & facet) const;
     // elimina le facce in input
@@ -43,10 +43,34 @@ private:
     void modify_facets(const std::unordered_set<unsigned> & facet_ids, const FacetType & facet);
     std::vector<Element<M, N>> modify_elements(std::unordered_set<unsigned> & elem_ids, const FacetType & facet, SVector<N> new_coord) const;
     void update_boundary(const FacetType & facet);
+    // metodo per sommare i costi con i pesi
+    template<std::size_t K, typename CostType_, typename... CostTypes_>
+    double sum_costs(const std::array<double, K>& w, 
+    				 const std::vector<Element<M, N>> & elems_to_modify, 
+    				 const std::vector<Element<M, N>> & elems_to_erase, 
+    				 const std::vector<Element<M, N>> & elems_modified, 
+    				 SVector<3> collapse_point, 
+    				 const std::unordered_set<unsigned> & data_ids,
+    				 CostType_&& cost_obj, CostTypes_&&... cost_objs) const
+    {
+	std::array<double, K-1> ww;
+    std::copy(w.begin()+1, w.end(), ww.begin());
+    return  sum_costs(ww, elems_to_modify, elems_to_erase, elems_modified, collapse_point, data_ids , cost_objs...) 
+    		+ w[0]*cost_obj(elems_to_modify, elems_to_erase, elems_modified, collapse_point, data_ids);
+    }
+    template<std::size_t K, typename CostType_>
+    double sum_costs(const std::array<double, K>& w, 
+    				 const std::vector<Element<M, N>> & elems_to_modify, 
+    				 const std::vector<Element<M, N>> & elems_to_erase, 
+    				 const std::vector<Element<M, N>> & elems_modified, 
+    				 SVector<3> collapse_point, 
+    				 const std::unordered_set<unsigned> & data_ids,
+    				 CostType_&& cost_obj) const
+    { return w[0]*cost_obj(elems_to_modify, elems_to_erase, elems_modified, collapse_point, data_ids); }
 public:
 	Simplification(const Mesh<M, N> & mesh);
-	template<typename... Args>
-	void simplify(unsigned n_nodes, Args&&... cost_objs);
+	template<std::size_t K, typename... Args>
+	void simplify(unsigned n_nodes, std::array<double, K> w, Args&&... cost_objs);
 	// costruisce la mesh semplificata
 	Mesh<M, N> build_mesh() const;
 	// temporaneo
@@ -111,8 +135,8 @@ std::vector<Element<M, N>> Simplification<M, N>::modify_elements(std::unordered_
 }
 
 template<int M, int N>
-template<typename... Args>
-void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, Args&&... cost_objs)
+template<std::size_t K, typename... Args>
+void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, const std::array<double, K>& w, Args&&... cost_objs)
 {
 	for(unsigned facet_id : facet_ids){
 		const auto & facet = facets_[facet_id];
@@ -139,7 +163,9 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, A
 	    {
 	    	std::vector<Element<M, N>> elems_modified = modify_elements(elems_to_modify_ids, facet, collapse_point);
 	        // calcolato il costo del collapse
-	        double cost = (... + cost_objs(elems_to_modify, elems_to_erase, elems_modified, collapse_point, data_ids));
+	        double cost = sum_costs(w, elems_to_modify, elems_to_erase, elems_modified, collapse_point, data_ids,
+	        						cost_objs...);
+	        // double cost = (... + cost_objs(elems_to_modify, elems_to_erase, elems_modified, collapse_point, data_ids));
 	        tmp_costs_map[cost] = collapse_point;
 	    }
 	    // ora si prende il costo minore e si controllano le intersezioni
@@ -334,9 +360,10 @@ void Simplification<M, N>::update_boundary(const FacetType & facet)
 // implementazione simplify
 // ========================
 template<int M, int N>
-template<typename... Args>
-void Simplification<M, N>::simplify(unsigned n_nodes, Args&&... cost_objs)
+template<std::size_t K, typename... Args>
+void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, Args&&... cost_objs)
 {
+	static_assert(K == sizeof...(cost_objs));
 	if(n_nodes >= n_nodes_)
 	{
 		std::cout<<"required nodes: "<<n_nodes<<", nodes in the mesh: "<<n_nodes_<<std::endl;
@@ -348,7 +375,7 @@ void Simplification<M, N>::simplify(unsigned n_nodes, Args&&... cost_objs)
 	// vengono calcolati i costi per ogni facet valida
 	std::set<unsigned> all_facets;
 	for(unsigned i = 0; i < facets_.size(); ++i) {all_facets.insert(i);}
-	compute_costs(all_facets, cost_objs...);
+	compute_costs(all_facets, w, cost_objs...);
 	// viene semplificata la faccia con costo minore
 	for(auto collapse_info : costs_map_)
 	{
@@ -433,7 +460,7 @@ void Simplification<M, N>::simplify(unsigned n_nodes, Args&&... cost_objs)
         // aggiornate le informazioni sul bordo
         update_boundary(facet);
         // aggiornato il costo delle facce
-        compute_costs(facets_to_update, cost_objs...);
+        compute_costs(facets_to_update,w, cost_objs...);
         // aggiornata la classe sgs_ (se necessario)
         if(sgs_.to_refresh())
         	sgs_.refresh(elems_vec_, connections_.get_active_elements(), connections_.get_active_nodes().size());

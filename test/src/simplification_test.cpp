@@ -521,7 +521,8 @@ TEST(simplification_test, only_geo)
     std::cout<<"nodi mesh: "<<n_nodes<<"\nInserire il numero di nodi\n";
     unsigned target_nodes;
     std::cin>>target_nodes;
-    simp.simplify(target_nodes, geom_cost);
+    std::array<double, 2> w = {0.5, 0.5};
+    simp.simplify(target_nodes, w, geom_cost, data_dist_cost);
     std::cout<<"simplificazione finita\n";
     auto mesh_simp = simp.build_mesh();
     std::ofstream file_nodes("../../../meshes/nodes_simp.txt");
