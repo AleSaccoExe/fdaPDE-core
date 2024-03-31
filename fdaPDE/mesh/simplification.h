@@ -33,8 +33,8 @@ private:
     // metodi privati
 
     // calcola il costo per ogni facet
-    template<typename CostType_>
-    void compute_costs(const std::set<unsigned> & facet_ids,CostType_ cost_obj);
+    template<typename... Args>
+    void compute_costs(const std::set<unsigned> & facet_ids, Args&&... cost_obj);
     // trova i possibili punti per il collapse di facet
     std::vector<SVector<N>> get_collapse_points(const FacetType & facet) const;
     // elimina le facce in input
@@ -45,8 +45,8 @@ private:
     void update_boundary(const FacetType & facet);
 public:
 	Simplification(const Mesh<M, N> & mesh);
-	template<typename CostType_>
-	void simplify(unsigned n_nodes, CostType_ cost_obj);
+	template<typename... Args>
+	void simplify(unsigned n_nodes, Args&&... cost_objs);
 	// costruisce la mesh semplificata
 	Mesh<M, N> build_mesh() const;
 	// temporaneo
@@ -111,8 +111,8 @@ std::vector<Element<M, N>> Simplification<M, N>::modify_elements(std::unordered_
 }
 
 template<int M, int N>
-template<typename CostType_>
-void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, CostType_ cost_obj)
+template<typename... Args>
+void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, Args&&... cost_objs)
 {
 	for(unsigned facet_id : facet_ids){
 		const auto & facet = facets_[facet_id];
@@ -134,7 +134,8 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, C
 	    for(auto collapse_point : collapse_points)
 	    {
 	        // calcolato il costo del collapse
-	        tmp_costs_map[cost_obj(elems_tmp1, elems_tmp2, collapse_point)] = collapse_point;
+	        double cost = (... + cost_objs(elems_tmp1, elems_tmp2, collapse_point));
+	        tmp_costs_map[cost] = collapse_point;
 	    }
 	    // ora si prende il costo minore e si controllano le intersezioni
 	    for(auto it = tmp_costs_map.begin(); it != tmp_costs_map.end(); ++it)
@@ -328,19 +329,21 @@ void Simplification<M, N>::update_boundary(const FacetType & facet)
 // implementazione simplify
 // ========================
 template<int M, int N>
-template<typename CostType_>
-void Simplification<M, N>::simplify(unsigned n_nodes, CostType_ cost_obj)
+template<typename... Args>
+void Simplification<M, N>::simplify(unsigned n_nodes, Args&&... cost_objs)
 {
 	if(n_nodes >= n_nodes_)
 	{
 		std::cout<<"required nodes: "<<n_nodes<<", nodes in the mesh: "<<n_nodes_<<std::endl;
 		return;
 	}
+	// setup dei costi
+	(cost_objs.setup(this), ...);
 
 	// vengono calcolati i costi per ogni facet valida
 	std::set<unsigned> all_facets;
 	for(unsigned i = 0; i < facets_.size(); ++i) {all_facets.insert(i);}
-	compute_costs(all_facets, cost_obj);
+	compute_costs(all_facets, cost_objs...);
 	// viene semplificata la faccia con costo minore
 	for(auto collapse_info : costs_map_)
 	{
@@ -425,7 +428,7 @@ void Simplification<M, N>::simplify(unsigned n_nodes, CostType_ cost_obj)
         // aggiornate le informazioni sul bordo
         update_boundary(facet);
         // aggiornato il costo delle facce
-        compute_costs(facets_to_update, cost_obj);
+        compute_costs(facets_to_update, cost_objs...);
         // aggiornata la classe sgs_ (se necessario)
         if(sgs_.to_refresh())
         	sgs_.refresh(elems_vec_, connections_.get_active_elements(), connections_.get_active_nodes().size());

@@ -25,6 +25,8 @@
 #include <vector>
 #include <string>
 #include <chrono>
+#include <fstream>
+
 using fdapde::core::Element;
 using fdapde::core::Mesh;
 
@@ -49,7 +51,24 @@ DA DEBUGGARE:
 - nodes_on_facet
 - elems_on_facet. DA ELIMINARE??
 */
+std::vector<int> generateUniqueRandomNumbers(int N, int M) {
+    std::vector<int> numbers;
+    // Riempire un vettore con numeri da 0 a M-1
+    for (int i = 0; i < M; ++i) {
+        numbers.push_back(i);
+    }
+    // Mescolare il vettore per avere ordine casuale
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(numbers.begin(), numbers.end(), g);
+    // Ridimensionare il vettore per ottenere solo i primi N numeri
+    numbers.resize(N);
+    return numbers;
+}
 
+
+
+/*
 TEST(connections_test, test_1)
 {
     unsigned id_facet_test = 25;
@@ -57,29 +76,84 @@ TEST(connections_test, test_1)
     unsigned id_elem_test = 15;
     using namespace std::chrono;
     MeshLoader<Mesh<2, 3>> meshloader("surface");
+    unsigned n_facets = meshloader.mesh.n_facets();
     high_resolution_clock::time_point start = high_resolution_clock::now();
-    Connections connections(meshloader.mesh);
+    std::vector<int> facets_to_collapse = generateUniqueRandomNumbers(5, n_facets); 
+    auto mesh_simp = meshloader.mesh.simplify({facets_to_collapse.begin(), facets_to_collapse.end()});
     high_resolution_clock::time_point end = high_resolution_clock::now();
     auto duration = duration_cast<milliseconds>(end-start).count();
-    cout << "tempo per le connessioni: " << duration << " ms" << endl;
-/*
-    bool ok = true;
+    cout << "tempo per simplify: " << duration << " ms" << endl;
 
-    auto facets = connections.facets_connected_to_node(id_node_test);
-    for(unsigned id_facet : facets)
-    {
-        auto node_ids = connections.get_facet(id_facet);
-        ok = ok && (node_ids.find(id_node_test) != node_ids.end());
+
+    std::ofstream file_elems("../../../meshes/elems_simp.txt");
+    std::ofstream file_nodes("../../../meshes/nodes_simp.txt");
+
+    // Verifica che il file sia stato aperto correttamente
+    if (file_elems.is_open()) {
+        // Scrittura della matrice nel file
+        file_elems << mesh_simp.elements() << std::endl;
+
+        // Chiusura del file
+        file_elems.close();
+
+        std::cout << "Matrice degli elementi scritta con successo nel file." << std::endl;
+    } else {
+        std::cerr << "Impossibile aprire il file degli elementi per la scrittura." << std::endl;
     }
-    */
-    
-    auto facet = connections.get_facet(id_facet_test);
-    auto it = facet.begin();
-    unsigned old_id = *it;
-    ++it;
-    unsigned new_id = *it;
 
-    connections.replace_node_in_node_to_elems(old_id, new_id); 
+    if (file_nodes.is_open()) {
+        // Scrittura della matrice nel file
+        file_nodes << mesh_simp.nodes() << std::endl;
+
+        // Chiusura del file
+        file_nodes.close();
+
+        std::cout << "Matrice dei nodi scritta con successo nel file." << std::endl;
+    } else {
+        std::cerr << "Impossibile aprire il file dei nodi per la scrittura." << std::endl;
+    }
+    EXPECT_TRUE(true);
+}
+*/
+
+TEST(connections_test, test_2)
+{
+    using namespace std::chrono;
+    MeshLoader<Mesh<3, 3>> meshloader("unit_sphere");
+    unsigned n_facets = meshloader.mesh.n_facets();
+
+    std::vector<int> facets_to_collapse = generateUniqueRandomNumbers(5, n_facets);
+
+    auto mesh_simp = meshloader.mesh.simplify({facets_to_collapse.begin(), facets_to_collapse.end()});
+
+
+    std::ofstream file_elems("../../../meshes/sphere_elems_simp.txt");
+    std::ofstream file_nodes("../../../meshes/sphere_nodes_simp.txt");
+
+    // Verifica che il file sia stato aperto correttamente
+    if (file_elems.is_open()) {
+        // Scrittura della matrice nel file
+        file_elems << mesh_simp.elements() << std::endl;
+
+        // Chiusura del file
+        file_elems.close();
+
+        std::cout << "Matrice degli elementi scritta con successo nel file." << std::endl;
+    } else {
+        std::cerr << "Impossibile aprire il file degli elementi per la scrittura." << std::endl;
+    }
+
+    if (file_nodes.is_open()) {
+        // Scrittura della matrice nel file
+        file_nodes << mesh_simp.nodes() << std::endl;
+
+        // Chiusura del file
+        file_nodes.close();
+
+        std::cout << "Matrice dei nodi scritta con successo nel file." << std::endl;
+    } else {
+        std::cerr << "Impossibile aprire il file dei nodi per la scrittura." << std::endl;
+    }
 
     EXPECT_TRUE(true);
 }

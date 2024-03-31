@@ -40,6 +40,7 @@ struct GeomCost{
 			+ 2*Q[1]*v[0]*v[1] + 2*Q[2]*v[0]*v[2] + 2*Q[5]*v[1]*v[2]
 			+ 2*Q[3]*v[0] + 2*Q[6]*v[1] + 2*Q[8]*v[2] + Q[9];
 	}
+	void setup(Simplification<2, 3> * p_simp){}
 };
 
 }

@@ -472,9 +472,52 @@ TEST(simplification_test, only_geo)
 TEST(simplification_test, only_geo)
 {
     GeomCost geom_cost;
-    MeshLoader<Mesh<2, 3>> meshloader("surface");
-    Simplification simp(meshloader.mesh);
-    std::cout<<"nodi mesh: "<<meshloader.mesh.n_nodes()<<"\nInserire il numero di nodi\n";
+
+    // MeshLoader<Mesh<2, 3>> meshloader("surface");
+    std::ifstream mesh_file("../../../meshes/pawn.inp");
+    int n_nodes, n_elements;
+    std::string line;
+    getline(mesh_file, line);
+    std::string s_num_elem, s_num_ver, num_data;
+    std::istringstream ss(line);
+    ss>>n_nodes;
+    ss>>n_elements;
+    DMatrix<double> nodes(n_nodes, 3);
+    DMatrix<int> elements(n_elements, 3);
+    for(unsigned i = 0; i<n_nodes; ++i)
+    {
+        getline(mesh_file, line);
+        std::string x, y, z;
+        std::istringstream ss(line);
+        std::string useless;
+        ss>>useless;
+        ss>>x>>y>>z;
+        nodes(i, 0) = std::stod(x);
+        nodes(i, 1) = std::stod(y);
+        nodes(i, 2) = std::stod(z);
+    }
+    for(unsigned i = 0; i< n_elements; ++i)
+    {
+        getline(mesh_file, line);
+        std::string useless;
+        std::istringstream ss(line);
+        ss>>useless; ss>>useless; ss>>useless;
+        std::string node_id1, node_id2, node_id3;
+        ss>>node_id1>>node_id2>>node_id3;
+        elements(i, 0) = std::stoi(node_id1)-1;
+        elements(i, 1) = std::stoi(node_id2)-1;
+        elements(i, 2) = std::stoi(node_id3)-1;
+    }
+    // Simplification simp(meshloader.mesh);
+    MeshLoader<Mesh<2, 2>> meshloader("unit_square_128");
+    DMatrix<int> boundary(n_nodes, 1);
+    boundary.setZero();
+    Mesh<2, 3> mesh(nodes, elements, boundary);
+    std::cout<<"mesh creata\n";
+    Simplification simp(mesh);
+    std::cout<<"simp inizializzata\n";
+    // std::cout<<"nodi mesh: "<<meshloader.mesh.n_nodes()<<"\nInserire il numero di nodi\n";
+    std::cout<<"nodi mesh: "<<n_nodes<<"\nInserire il numero di nodi\n";
     unsigned target_nodes;
     std::cin>>target_nodes;
     simp.simplify(target_nodes, geom_cost);
@@ -486,4 +529,31 @@ TEST(simplification_test, only_geo)
     file_nodes<<mesh_simp.nodes();
     file_elems<<mesh_simp.elements();
     file_data<<simp.get_data();
+    file_nodes.close();
+    file_data.close();
+    file_elems.close();
+    std::cout<<"check sull'intersezione tra elementi\n";
+    bool do_intersect = false;
+    for(unsigned i = 0; i < mesh.n_elements(); ++i){
+        for(unsigned j = 0; j < mesh.n_elements(); ++j)
+            if(i!=j)
+            {
+                do_intersect = do_intersect || mesh.element(i).intersection(mesh.element(j));
+                if(do_intersect)
+                {
+                    std::cout<<"el: "<<i<<std::endl;
+                    auto node_ids1 = mesh.element(i).node_ids();
+                    std::cout<<node_ids1[0]<<" "<<node_ids1[1]<<" "<<node_ids1[2]<<"\n";
+                    std::cout<<"el: "<<j<<std::endl;
+                    auto node_ids2 = mesh.element(j).node_ids();
+                    std::cout<<node_ids2[0]<<" "<<node_ids2[1]<<" "<<node_ids2[2]<<"\n";
+                    break;
+                }
+            }
+        if(do_intersect)
+            break;
+    }
+    if(do_intersect)
+        std::cout<<"trovata intersezione\n";
+    
 }
