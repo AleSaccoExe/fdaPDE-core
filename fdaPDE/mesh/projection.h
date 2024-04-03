@@ -280,6 +280,162 @@ SVector<3> project(const std::vector<Element<2, 3>> & elems, SVector<3> datum)
 	return opt_pos;
 } // dist_projection
 
+// questa funzione torna per ogni elemento un set degli id dei dati che ora appartengono all'elemento
+std::vector<std::set<unsigned>> projection_info(const std::vector<Element<2, 3>> & elems, 
+ 	const DMatrix<double> & data, const std::unordered_set<unsigned> & data_ids)
+{
+	std::vector<std::set<unsigned>> new_elem_to_data(elems.size());
+	constexpr int N = 3;
+	for(unsigned datum_id : data_ids) // loop sui dati
+	{
+		double opt_dist(std::numeric_limits<double>::max());
+		bool inside_elem = false;
+		SVector<N> datum = data.row(datum_id);
+		unsigned opt_pos; // la posizione ottimale del dato
+		for(unsigned i = 0; i < elems.size(); ++i) // loop sugli elementi
+		{
+			const auto & elem = elems[i];
+			SVector<N> p_datum = elem.hyperplane().project(datum); // viene proiettato il dato
+			if(elem.contains(p_datum)) // se l'elemento contiene il dato proiettato sul piano del triangolo
+			{
+				double dist = (datum - p_datum).norm(); // distanza 
+				if(dist < opt_dist)
+				{
+					opt_dist = dist;
+					inside_elem = true; // il dato cade in un elemento
+					opt_pos = i; 
+				}
+			}
+		} // loop sugli elementi
+		if(inside_elem) {new_elem_to_data[opt_pos].insert(datum_id);}
+		else // il dato non può essere proiettato dentro gli elementi
+		{
+			// contiene gli id degli elementi a cui il dato appartiene dopo la proiezione
+			std::set<unsigned> best_pos; 
+			opt_dist = std::numeric_limits<double>::max();
+			for(unsigned i = 0; i < elems.size(); ++i) // loop sugli elementi
+			{
+				const auto & elem = elems[i];
+				// vengono presi i nodi dell'elemento
+				auto A = elem.coords()[0];
+				auto B = elem.coords()[1];
+				auto C = elem.coords()[2];
+				// lato AB
+				double t = -( datum - A ).dot( A - B )/( B - A ).squaredNorm();
+				if(t > 0 && t < 1) // la proiezione cade dentro al lato
+				{
+					SVector<N> p_datum = A + t*(B - A);
+					double dist = (p_datum - datum).norm();
+					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
+					else if(opt_dist > dist)
+					{
+						opt_dist = dist;
+						best_pos.clear();
+						best_pos.insert(i);
+					} 
+				}
+				else if(t <=0)
+				{
+					double dist = (datum - A).norm();
+					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
+					else if(opt_dist > dist)
+					{
+						opt_dist = dist;
+						best_pos.clear();
+						best_pos.insert(i);
+					}
+				}
+				else if(t >= 1)
+				{
+					double dist = (datum - B).norm();
+					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
+					else if(opt_dist > dist)
+					{
+						opt_dist = dist;
+						best_pos.clear();
+						best_pos.insert(i);
+					}
+				}
+				// lato BC
+				t = -(datum - B).dot(B - C)/(C- B).squaredNorm();
+				if(t > 0 && t < 1) // la proiezione cade dentro al lato
+				{
+					SVector<N> p_datum = B + t*(C - B);
+					double dist = (p_datum - datum).norm();
+					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
+					else if(opt_dist > dist)
+					{
+						opt_dist = dist;
+						best_pos.clear();
+						best_pos.insert(i);
+					} 
+				}
+				else if(t <=0)
+				{
+					double dist = (datum - B).norm();
+					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
+					else if(opt_dist > dist)
+					{
+						opt_dist = dist;
+						best_pos.clear();
+						best_pos.insert(i);
+					}
+				}
+				else if(t >= 1)
+				{
+					double dist = (datum - C).norm();
+					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
+					else if(opt_dist > dist)
+					{
+						opt_dist = dist;
+						best_pos.clear();
+						best_pos.insert(i);
+					}
+				}
+				// lato CA
+				t = -(datum - C).dot(C - A)/(A - C).squaredNorm();
+				if(t > 0 && t < 1) // la proiezione cade dentro al lato
+				{
+					SVector<N> p_datum = C + t*(A - C);
+					double dist = (p_datum - datum).norm();
+					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
+					else if(opt_dist > dist)
+					{
+						opt_dist = dist;
+						best_pos.clear();
+						best_pos.insert(i);
+					} 
+				}
+				else if(t <=0)
+				{
+					double dist = (datum - C).norm();
+					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
+					else if(opt_dist > dist)
+					{
+						opt_dist = dist;
+						best_pos.clear();
+						best_pos.insert(i);
+					}
+				}
+				else if(t >= 1)
+				{
+					double dist = (datum - A).norm();
+					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
+					else if(opt_dist > dist)
+					{
+						opt_dist = dist;
+						best_pos.clear();
+						best_pos.insert(i);
+					}
+				}
+			} // loop sugli elementi
+			// aggiornata la posizione del dato
+			for(unsigned i : best_pos) {new_elem_to_data[i].insert(datum_id);}
+		} // else 
+	} // loop sui dati
+	return new_elem_to_data;
+}
+
 } // core
 } // fdapde
 
