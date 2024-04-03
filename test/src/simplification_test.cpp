@@ -473,9 +473,10 @@ TEST(simplification_test, only_geo)
 {
     GeomCost geom_cost;
     DataDistCost data_dist_cost;
+    SharpElemsCost<2, 3> sharp_elems_cost;
 
     // MeshLoader<Mesh<2, 3>> meshloader("surface");
-    std::ifstream mesh_file("../../../meshes/pawn.inp");
+    std::ifstream mesh_file("../../../meshes/sfera.inp");
     int n_nodes, n_elements;
     std::string line;
     getline(mesh_file, line);
@@ -521,7 +522,7 @@ TEST(simplification_test, only_geo)
     std::cout<<"nodi mesh: "<<n_nodes<<"\nInserire il numero di nodi\n";
     unsigned target_nodes;
     std::cin>>target_nodes;
-    std::array<double, 2> w = {0.0, 1.0};
+    std::array<double, 2> w = {0.5, 0.5};
     simp.simplify(target_nodes, w, geom_cost, data_dist_cost);
     std::cout<<"simplificazione finita\n";
     auto mesh_simp = simp.build_mesh();

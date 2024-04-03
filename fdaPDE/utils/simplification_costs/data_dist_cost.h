@@ -50,6 +50,9 @@ struct DataDistCost{
 		if(cost > max) {max = cost;}
 	}
 
+	void update(const std::vector<Element<2, 3>> & elems_to_delete,
+				const std::vector<Element<2, 3>> & elems_modified) {}
+
 	// Contiene le posizioni iniziali di tutti i dati
 	DMatrix<double> data_;
 	Simplification<2, 3>* p_simp_;

@@ -58,6 +58,9 @@ struct GeomCost{
 		if(cost > max) {max = cost;}
 	}
 
+	void update(const std::vector<Element<2, 3>> & elems_to_delete,
+				const std::vector<Element<2, 3>> & elems_modified) {}
+
 	double max = 0.0;
 };
 

@@ -32,5 +32,7 @@
 #include "utils/intersection.h"
 #include "utils/simplification_costs/geom_cost.h"
 #include "utils/simplification_costs/data_dist_cost.h"
+#include "utils/simplification_costs/sharp_elems_cost.h"
+#include "utils/simplification_costs/data_disp_cost.h"
 
 #endif   // __FDAPDE_UTILS_MODULE_H__
