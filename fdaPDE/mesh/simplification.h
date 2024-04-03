@@ -78,6 +78,11 @@ public:
 	Mesh<M, N> build_mesh() const;
 	// temporaneo
 	const DMatrix<double> & get_data() const {return data_;}
+
+	// getters
+	std::set<unsigned> active_elems() const {return connections_.get_active_elements();}
+	std::unordered_set<unsigned> data_to_elems(unsigned datum_id) const {return data_to_elems_[datum_id];}
+	std::unordered_set<unsigned> elem_to_data(unsigned elem_id) const {return elem_to_data_[elem_id];}
 };
 
 // ===============
@@ -144,6 +149,7 @@ template<int M, int N>
 template<std::size_t K, typename... Args>
 void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, const std::array<double, K>& w, Args&&... cost_objs)
 {
+	bool max_to_update = false;
 	for(unsigned facet_id : facet_ids){
 		const auto & facet = facets_[facet_id];
     	std::vector<SVector<N>> collapse_points = get_collapse_points(facet);
@@ -177,6 +183,12 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
 	    // ora si prende il costo minore e si controllano le intersezioni
 	    for(auto it = tmp_costs_map.begin(); it != tmp_costs_map.end(); ++it)
 	    {
+	    	if(it->first > 1.0)
+	    	{
+	    		std::cout<<"costi massimi da aggiornare	\n";
+	    		max_to_update = true;
+	    		break;
+	    	}
 	        // viene creato un vettore degli elementi modificati nel collapse di facet
 	        std::vector<Element<M, N>> elems_tmp = modify_elements(elems_to_modify_ids, facet, it->second);
 	        // ora passo a sgs il vettore di elementi elems_tmp, che è formato di elementi da modificare
@@ -218,6 +230,7 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
 	    }
 	    std::vector<Element<M, N>> elems_tmp; // questo vettore viene ora riempito di elementi da aggiungere
 	    // a questo punto si ripristina la classe sgs al suo stato iniziale
+	    if(max_to_update) {break;}
 	    for(unsigned elem_id : elems_to_erase_ids) // loop sugli elementi che erano stati eliminati
 	        elems_tmp.push_back(elems_vec_[elem_id]);
 	    sgs_.add_elements(elems_tmp);
@@ -227,6 +240,17 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
 	    sgs_.update_f(elems_tmp);
 
 	    } // if(connections_.nodes_on_facet(facet).size()==2)
+    }
+    if(max_to_update)
+    {
+    	std::set<unsigned> all_facets;
+    	for(const auto & pair : facets_cost_) {all_facets.insert(pair.first);}
+    	all_facets.insert(facet_ids.begin(), facet_ids.end());
+    	facets_cost_.clear();
+    	costs_map_.clear();
+    	update_max_costs(all_facets, cost_objs...);
+    	compute_costs(all_facets, w, cost_objs...);
+    	std::cout<<"finito l'aggiornamento dei costi\n";
     }
 } // compute_costs
 
@@ -422,8 +446,12 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
 	update_max_costs(all_facets, cost_objs...);
 	compute_costs(all_facets, w, cost_objs...);
 	// viene semplificata la faccia con costo minore
-	for(auto collapse_info : costs_map_)
+	unsigned numero_semplificazione = 1;
+	while(n_nodes_ > n_nodes)
 	{
+		std::cout<<"inizio semplificazione "<<numero_semplificazione<<"\n";
+		numero_semplificazione++;
+		auto collapse_info = *costs_map_.begin();
 		auto facet = facets_[collapse_info.second.first]; // viene presa la faccia da contrarre
 		auto elems_to_modify = connections_.elems_modified_in_collapse(facet);
         auto elems_to_erase = connections_.elems_erased_in_collapse(facet);
@@ -458,6 +486,7 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
         auto facets_pair = connections_.collapse_facet(facet, elems_tmp);
         assert(facets_pair.first.size()==2);
         // vengono eliminate le informazioni sulle facce che non esistono più
+        facets_pair.first.insert(collapse_info.second.first);
         erase_facets(facets_pair.first);
         // e anche tutte le altre facce con costi da ricalcolare
         auto facets_to_update = connections_.facets_to_update(facet[0]);
@@ -505,16 +534,12 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
         // aggiornate le informazioni sul bordo
         update_boundary(facet);
         // aggiornato il costo delle facce
-        compute_costs(facets_to_update,w, cost_objs...);
+        compute_costs(facets_to_update, w, cost_objs...);
         // aggiornata la classe sgs_ (se necessario)
         if(sgs_.to_refresh())
         	sgs_.refresh(elems_vec_, connections_.get_active_elements(), connections_.get_active_nodes().size());
-
         // finito il collapse vengono tolti M - 1 nodi
         n_nodes_ = n_nodes_ - (M-1);
-        if(n_nodes_ < n_nodes)
-        	break;
-
 	}
 
 } // simplify
