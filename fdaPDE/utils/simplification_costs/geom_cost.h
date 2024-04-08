@@ -49,19 +49,26 @@ struct GeomCost{
 	}
 	void setup(Simplification<2, 3> * p_simp){}
 
-	void update_max(const std::vector<Element<2, 3>> & elems_to_modify, 
+	void update_min(const std::vector<Element<2, 3>> & elems_to_modify, 
 				  const std::vector<Element<2, 3>> & elems_to_delete,
 				  const std::vector<Element<2, 3>> & elems_modified, const SVector<3> & v,
 				  const std::unordered_set<unsigned> & data_ids)
 	{
 		double cost = get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids);
-		if(cost > max) {max = cost;}
+		if(cost < min_) {min_ = cost;}
+	}
+
+	void update_max()
+	{
+		if(min_ > max) {max = min_;}
+		min_ = std::numeric_limits<double>::max();
 	}
 
 	void update(const std::vector<Element<2, 3>> & elems_to_delete,
 				const std::vector<Element<2, 3>> & elems_modified) {}
 
 	double max = 0.0;
+	double min_ = std::numeric_limits<double>::max();
 };
 
 }

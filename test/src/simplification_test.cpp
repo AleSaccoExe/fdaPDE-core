@@ -18,13 +18,12 @@
 #include <fdaPDE/utils.h>
 #include <gtest/gtest.h>   // testing framework
 
-#include <memory>
-#include <random>
 #include <set>
 #include <unordered_set>
 #include <vector>
 #include <fstream>
 #include <string>
+#include <chrono>
 using fdapde::core::Element;
 using fdapde::core::Mesh;
 
@@ -36,6 +35,7 @@ using fdapde::testing::MeshLoader;
 using namespace fdapde::core;
 using namespace std;
 
+/*
 
 std::vector<int> generateUniqueRandomNumbers(int N, int M) {
     std::vector<int> numbers;
@@ -53,7 +53,6 @@ std::vector<int> generateUniqueRandomNumbers(int N, int M) {
 }
 
 
-/*
 TEST(simplification_test, test_with_intersection_check)
 {
     using ConnectionsType = std::vector<std::unordered_set<unsigned>>;
@@ -471,12 +470,17 @@ TEST(simplification_test, only_geo)
 
 TEST(simplification_test, only_geo)
 {
+    using Clock = std::chrono::high_resolution_clock;
+    using std::chrono::duration;
+    using std::chrono::duration_cast;
+
     GeomCost geom_cost;
     DataDistCost data_dist_cost;
     SharpElemsCost<2, 3> sharp_elems_cost;
+    DataDispCost<2, 3> data_disp_cost;
 
     // MeshLoader<Mesh<2, 3>> meshloader("surface");
-    std::ifstream mesh_file("../../../meshes/sfera.inp");
+    std::ifstream mesh_file("../../../meshes/pawn.inp");
     int n_nodes, n_elements;
     std::string line;
     getline(mesh_file, line);
@@ -522,9 +526,14 @@ TEST(simplification_test, only_geo)
     std::cout<<"nodi mesh: "<<n_nodes<<"\nInserire il numero di nodi\n";
     unsigned target_nodes;
     std::cin>>target_nodes;
-    std::array<double, 2> w = {0.5, 0.5};
-    simp.simplify(target_nodes, w, geom_cost, data_dist_cost);
-    std::cout<<"simplificazione finita\n";
+    // std::array<double, 2> w = {0.5, 0.5};
+    std::array<double, 3> w = {1./3., 1./3., 1./3.};
+    auto start = Clock::now();
+    simp.simplify(target_nodes, w, geom_cost, data_dist_cost, data_disp_cost);
+    // simp.simplify(target_nodes, w, geom_cost, data_dist_cost);
+    auto end = Clock::now();
+    auto elapsed = duration_cast<duration<double>>(end - start);
+    std::cout<<"simplificazione finita. Tempo impiegato: "<<elapsed.count()<<"\n";
     auto mesh_simp = simp.build_mesh();
     std::ofstream file_nodes("../../../meshes/nodes_simp.txt");
     std::ofstream file_elems("../../../meshes/elems_simp.txt");
@@ -535,6 +544,30 @@ TEST(simplification_test, only_geo)
     file_nodes.close();
     file_data.close();
     file_elems.close();
+
+    std::cout<<"scrivere il nome del file di qoi e dist\n";
+    std::string nome_file;
+    std::cin>>nome_file;
+
+    std::ofstream file_dist("../../../meshes/dist_"+nome_file+".txt");
+    // viene stampata la distanza dei dati
+    for (int i = 0; i < mesh.n_nodes(); ++i) {
+        SVector<3> new_pos = simp.get_data().row(i);
+        SVector<3> orig_pos = mesh.node(i);
+        // Scriviamo il numero nel file di testo
+        file_dist << (new_pos - orig_pos).norm() << std::endl;
+    }
+
+    // Chiudiamo il file dopo aver scritto tutti i numeri
+    file_dist.close();
+    std::ofstream file_qoi("../../../meshes/qoi_"+nome_file+".txt");
+    auto active_elems = simp.active_elems();
+    for(auto elem_id : active_elems)
+        file_qoi<<data_disp_cost.qoi_[elem_id]<<std::endl;
+    file_qoi.close();
+
+
+
     std::cout<<"check sull'intersezione tra elementi\n";
     bool do_intersect = false;
     for(unsigned i = 0; i < mesh.n_elements(); ++i){

@@ -7,31 +7,37 @@
 namespace fdapde{
 namespace core{
 
-template<int M, int N>
+template<int M, int N> 
 struct DataDispCost{
-	double operator()(const std::vector<Element<2, 3>> & elems_to_modify, 
-					  const std::vector<Element<2, 3>> & elems_to_delete,
-					  const std::vector<Element<2, 3>> & elems_modified, const SVector<3> & v,
+	double operator()(const std::vector<Element<M, N>> & elems_to_modify, 
+					  const std::vector<Element<M, N>> & elems_to_delete,
+					  const std::vector<Element<M, N>> & elems_modified, const SVector<3> & v,
 					  const std::unordered_set<unsigned> & data_ids) const
 	{ return get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids)/max_; }
 
-	void update_max(const std::vector<Element<2, 3>> & elems_to_modify, 
-				  const std::vector<Element<2, 3>> & elems_to_delete,
-				  const std::vector<Element<2, 3>> & elems_modified, const SVector<3> & v,
-				  const std::unordered_set<unsigned> & data_ids)
+	void update_min(const std::vector<Element<M, N>> & elems_to_modify, 
+					  const std::vector<Element<M, N>> & elems_to_delete,
+					  const std::vector<Element<M, N>> & elems_modified, const SVector<3> & v,
+					  const std::unordered_set<unsigned> & data_ids)
 	{
 		double cost = get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids);
-		if(cost > max_) {max_ = cost;}
+		if(cost < min_) {min_ = cost;}
+	}
+	void update_max()
+	{
+		if(min_ > max_) {max_ = min_;}
+		min_ = std::numeric_limits<double>::max();
 	}
 
-	double get_cost(const std::vector<Element<2, 3>> & elems_to_modify, 
-				  const std::vector<Element<2, 3>> & elems_to_delete,
-				  const std::vector<Element<2, 3>> & elems_modified, const SVector<3> & v,
-				  const std::unordered_set<unsigned> & data_ids) const
+	double get_cost(const std::vector<Element<M, N>> & elems_to_modify, 
+					  const std::vector<Element<M, N>> & elems_to_delete,
+					  const std::vector<Element<M, N>> & elems_modified, const SVector<3> & v,
+					  const std::unordered_set<unsigned> & data_ids) const
 	{
 		double disp_cost = 0.0;
+		// nuove connessioni elemento - dati
 		std::vector<std::set<unsigned>> new_elem_to_data = projection_info(elems_modified, p_simp_->get_data(),data_ids);
-		std::map<unsigned, std::set<unsigned>> new_data_to_elem(data_ids.size());
+		std::map<unsigned, std::set<unsigned>> new_data_to_elem;
 		for(unsigned i = 0; i < new_elem_to_data.size(); ++i)
 		{
 			auto data_on_elem = new_elem_to_data[i];
@@ -55,7 +61,8 @@ struct DataDispCost{
 				if (patch_size == 1)
 					Nt += 1.;
 				else
-					Nt += 1./patch;
+					Nt += 1./patch_size;
+				assert(patch_size != 0);
 			}
 			disp_cost += (mean_qoi_ - Nt)*(mean_qoi_ - Nt);
 		}
@@ -75,10 +82,11 @@ struct DataDispCost{
 			qoi_sum += qoi_elem;
 		}
 		mean_qoi_ = qoi_sum/num_elems_;
+
 	} // setup
 
-	void update(const std::vector<Element<2, 3>> & elems_to_delete,
-				const std::vector<Element<2, 3>> & elems_modified)
+	void update(const std::vector<Element<M, N>> & elems_to_delete,
+				const std::vector<Element<M, N>> & elems_modified)
 	{
 		double sum_qoi = mean_qoi_*num_elems_;
 		// dalla somma dei qoi viene tolto il contributo degli elementi eliminati
@@ -104,10 +112,13 @@ struct DataDispCost{
 		for(unsigned datum_id : data_ids)
 		{
 			auto patch = p_simp_->data_to_elems(datum_id).size();
+			/*
 			if (patch == 1)
 				Nt += 1.;
 			else
 				Nt += 1./patch;
+				*/
+			Nt += 1./patch;
 		}
 		return Nt;
 	}
@@ -117,6 +128,7 @@ struct DataDispCost{
 	// membri
 	double mean_qoi_;
 	double max_ = 0.0;
+	double min_ = std::numeric_limits<double>::max();
 	Simplification<M, N> * p_simp_;
 	std::vector<double> qoi_;
 	unsigned num_elems_;

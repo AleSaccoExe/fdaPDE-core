@@ -3,6 +3,7 @@
 
 #include "../../mesh/element.h"
 #include "../symbols.h"
+#include <cmath>
 
 namespace fdapde{
 namespace core{
@@ -26,6 +27,22 @@ double circumradius(const std::array<SVector<N>, 3> & points)
 
 }
 
+template<int N>
+double get_max_cos(const std::array<SVector<N>, 3> & points)
+{
+	double max = 0.0;
+	SVector<N> A = points[0];
+	SVector<N> B = points[1];
+	SVector<N> C = points[2];
+	double cos1 = std::abs((B-A).dot(C-A))/( (B-A).norm()*(C-A).norm() );
+	if(max < cos1) {max = cos1;}
+	double cos2 = std::abs((C-B).dot(A-B))/( (C-B).norm()*(A-B).norm() );
+	if(max < cos2) {max = cos2;}
+	double cos3 = std::abs((A-C).dot(B-C))/( (A-C).norm()*(B-C).norm() );
+	if(max < cos3) {max = cos3;}
+	return max;
+
+}
 
 
 template<int M, int N>
@@ -43,6 +60,7 @@ struct SharpElemsCost{
 					  const std::vector<Element<M, N>> & elems_modified, const SVector<N> & v, 
 					  const std::unordered_set<unsigned> & data_ids ) const
 	{
+		/*
 		double max_ratio = 0.0;
 		for(const auto & elem : elems_modified)
 		{
@@ -59,23 +77,51 @@ struct SharpElemsCost{
 			if(ratio > max_ratio) {max_ratio = ratio;}
 		}
 		return max_ratio;
+		*/
+		double max_cos1 = 0.0;
+		for(const auto & elem : elems_to_delete)
+		{
+			double cos = get_max_cos(elem.coords());
+			if(cos > max_cos1) {max_cos1 = cos;}
+		}
+		for(const auto & elem : elems_to_modify)
+		{
+			double cos = get_max_cos(elem.coords());
+			if(cos > max_cos1) {max_cos1 = cos;}
+		}
+		double max_cos2 = 0.0;
+		for(const auto & elem : elems_modified)
+		{
+			double cos = get_max_cos(elem.coords());
+			if(cos > max_cos2) {max_cos2 = cos;}
+		}
+		double csi = (1.-max_cos1)*(1.-max_cos1)/( (1.-max_cos2)*(1.-max_cos2) );
+		return std::tanh(csi) - 1./csi;
 	}
 	
 	void setup(Simplification<M, N> * p_simp){}
 
-	void update_max(const std::vector<Element<M, N>> & elems_to_modify, 
+	void update_min(const std::vector<Element<M, N>> & elems_to_modify, 
 					  const std::vector<Element<M, N>> & elems_to_delete, 
 					  const std::vector<Element<M, N>> & elems_modified, const SVector<N> & v, 
 					  const std::unordered_set<unsigned> & data_ids )
 	{
 		double cost = get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids);
-		if(cost > max_) {max_ = cost;}
+		if(cost < min_) {min_ = cost;}
 	}
 
-	void update(const std::vector<Element<2, 3>> & elems_to_delete,
-				const std::vector<Element<2, 3>> & elems_modified) {}
+	void update_max()
+	{
+		if(max_ < min_) {max_ = min_;}
+		min_  = std::numeric_limits<double>::max();
+	}
+
+	void update(const std::vector<Element<M, N>> & elems_to_delete,
+				const std::vector<Element<M, N>> & elems_modified) {}
 
 	double max_ = 0.0;
+	double min_ = std::numeric_limits<double>::max();
+
 };
 
 

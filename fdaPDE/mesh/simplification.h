@@ -12,6 +12,8 @@ class Simplification{
 	using ConnectionsType = std::vector<std::unordered_set<unsigned>>;
 	using FacetType = std::array<int, Mesh<M, N>::n_vertices_per_facet>;
 private:
+	double cost_threshold_ = 1.0;
+
 	StructuredGridSearch<M, N> sgs_;
 	Connections connections_;
 	std::vector<Element<M, N>> elems_vec_;
@@ -78,6 +80,8 @@ public:
 	Mesh<M, N> build_mesh() const;
 	// temporaneo
 	const DMatrix<double> & get_data() const {return data_;}
+
+	void controlli_vari() const;
 
 	// getters
 	std::set<unsigned> active_elems() const {return connections_.get_active_elements();}
@@ -183,9 +187,10 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
 	    // ora si prende il costo minore e si controllano le intersezioni
 	    for(auto it = tmp_costs_map.begin(); it != tmp_costs_map.end(); ++it)
 	    {
-	    	if(it->first > 1.0)
+	    	if(it->first > cost_threshold_)
 	    	{
-	    		std::cout<<"costi massimi da aggiornare	\n";
+	    		cost_threshold_ = it->first;
+	    		std::cout<<"costi massimi da aggiornare: "<<it->first<<"\n";
 	    		max_to_update = true;
 	    		break;
 	    	}
@@ -251,6 +256,7 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
     	update_max_costs(all_facets, cost_objs...);
     	compute_costs(all_facets, w, cost_objs...);
     	std::cout<<"finito l'aggiornamento dei costi\n";
+    	cost_threshold_ = 1.0;
     }
 } // compute_costs
 
@@ -354,7 +360,6 @@ void Simplification<M, N>::update_max_costs(const std::set<unsigned> & facet_ids
 	    if(connections_.nodes_on_facet(facet).size()==2 && collapse_points.size() != 0)
 	    {
 	    // per ogni punto in collapse_points si calcola il costo della contrazione
-	    std::map<double, SVector<N>> tmp_costs_map;
 	    auto elems_to_modify_ids = connections_.elems_modified_in_collapse(facet);
 	    auto elems_to_erase_ids = connections_.elems_erased_in_collapse(facet);
 	    // viene creato un vettore degli elementi involved nel collapse di facet
@@ -371,10 +376,19 @@ void Simplification<M, N>::update_max_costs(const std::set<unsigned> & facet_ids
 	    for(auto collapse_point : collapse_points)
 	    {
 	    	std::vector<Element<M, N>> elems_modified = modify_elements(elems_to_modify_ids, facet, collapse_point);
+	    	bool valid_collapse = true;
+	        // controllo sull'area dei triangoli e sulle normali:
+	        for(auto & elem : elems_modified)
+	        {
+	        	valid_collapse = valid_collapse && elem.measure()>DOUBLE_TOLERANCE;
+	        	valid_collapse = valid_collapse && 
+	        					 ( elem.hyperplane().normal().dot(elems_vec_[elem.ID()].hyperplane().normal()) > DOUBLE_TOLERANCE );
+	        }
 	        // calcolato il costo del collapse
-	        (cost_objs.update_max(elems_to_modify, elems_to_erase, elems_modified, collapse_point, data_ids),...);
-	        
+	        if(valid_collapse)
+	        	(cost_objs.update_min(elems_to_modify, elems_to_erase, elems_modified, collapse_point, data_ids),...);
 	    }
+	    (cost_objs.update_max(), ...);
 
 	    } // if(connections_.nodes_on_facet(facet).size()==2)
     }
@@ -439,6 +453,7 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
 	}
 	// setup dei costi
 	(cost_objs.setup(this), ...);
+	
 
 	// vengono calcolati i costi per ogni facet valida
 	std::set<unsigned> all_facets;
@@ -457,9 +472,9 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
         auto elems_to_erase = connections_.elems_erased_in_collapse(facet);
         // si modificano gli elementi
         // il vettore viene riempito con gli elementi modificati
-		std::vector<Element<M, N>> elems_tmp = modify_elements(elems_to_modify, facet, collapse_info.second.second);
+		std::vector<Element<M, N>> elems_modified = modify_elements(elems_to_modify, facet, collapse_info.second.second);
 		// vengono aggiornate le informazioni della classe sgs_
-		sgs_.update(elems_tmp, elems_to_erase, true);
+		sgs_.update(elems_modified, elems_to_erase, true);
 		// vengono presi i dati da proiettare
         std::unordered_set<unsigned> data_ids;
         for(unsigned elem_id : elems_to_erase)
@@ -467,9 +482,9 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
         for(unsigned elem_id : elems_to_modify)
             data_ids.insert(elem_to_data_[elem_id].begin(), elem_to_data_[elem_id].end());
         // vengono proiettati i dati sugli elementi già modificati
-        auto new_data_positions = project(elems_tmp, data_, data_ids);
+        auto new_elem_to_data = project(elems_modified, data_, data_ids);
         // ora si può eseguire il collapse e dopo si cambiano le informazioni di data_to_elems e elem_to_data
-        for(auto & elem : elems_tmp){ // loop sugli elementi modificati dalla contrazione
+        for(auto & elem : elems_modified){ // loop sugli elementi modificati dalla contrazione
             // viene sostituito nel vettore l'elemento modificato
             elems_vec_[elem.ID()] = elem;
             // nella matrice degli elementi vengono modificati gli id dei nodi
@@ -478,12 +493,13 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
         }
        	// vengono cambiate le coordinate del nodo del collapse
        	nodes_.row(facet[0]) = collapse_info.second.second;
-       	elems_tmp.clear(); // questo vettore viene ora riempito di elementi da eliminare
+       	// elems_tmp.clear(); // questo vettore viene ora riempito di elementi da eliminare
+       	std::vector<Element<M, N>> elems_erased;
         for(unsigned elem_id : elems_to_erase) // loop sugli elementi da eliminare
-            elems_tmp.push_back(elems_vec_[elem_id]);
+            elems_erased.push_back(elems_vec_[elem_id]);
         // vengono modificate le connessioni e prese le informazioni necessarie a modificare
         // le facce
-        auto facets_pair = connections_.collapse_facet(facet, elems_tmp);
+        auto facets_pair = connections_.collapse_facet(facet, elems_erased);
         assert(facets_pair.first.size()==2);
         // vengono eliminate le informazioni sulle facce che non esistono più
         facets_pair.first.insert(collapse_info.second.first);
@@ -494,45 +510,29 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
         erase_facets({facets_to_update.begin(), facets_to_update.end()});
         // vengono modificati gli id dei vertici delle facce
         // vengono ora modificate le connessioni tra dati e elementi
-        unsigned i = 0; // id del dato
-        for(unsigned data_id : data_ids)
-        {
-            // prendo i vecchi id degli elementi connessi al dato data_id
-            auto old_data_to_elems = data_to_elems_[data_id];
-            // rimuovo le vecchie connessioni
-            for(unsigned elem_id : old_data_to_elems) // loop sugli elementi
-                elem_to_data_[elem_id].erase(data_id);
-            auto data_info = new_data_positions[i];
-            if(data_info.first == -2) // -2 vuol dire che il dato è sull'elemento
-            {
-                data_to_elems_[data_id] = {static_cast<unsigned>(data_info.second)};
-                elem_to_data_[data_info.second].insert(data_id);
-            }
-            else if(data_info.first == -1) // -1 vuol dire che il dato è su un nodo
-            {
-                auto conn_elems = connections_.get_node_to_elems(data_info.second); // elementi connessi al dato
-                data_to_elems_[data_id] = conn_elems;
-                for(unsigned elem_id : conn_elems)
-                    elem_to_data_[elem_id].insert(data_id);
-            }
-            else // ultimo caso: il dato è dentro ad un edge
-            {
-                auto conn_elems1 = connections_.get_node_to_elems(data_info.first);
-                auto conn_elems2 = connections_.get_node_to_elems(data_info.second);
-                // intersezione tra i due set
-                for (auto it = conn_elems1.begin(); it != conn_elems1.end();) {
-                    if (!conn_elems2.count(*it)) { it = conn_elems1.erase(it); }
-                    else              { ++it; }
-                }
-                // vengono ora aggiornati le connessioni
-                // assert(conn_elems1.size()==2); devono essere per forza 2?
-                data_to_elems_[data_id] = conn_elems1;
-                for(unsigned elem_id : conn_elems1) {elem_to_data_[elem_id].insert(data_id);}
-            }
-            ++i;
-        }
+        std::map<unsigned, std::set<unsigned>> new_data_to_elem;
+		for(unsigned i = 0; i < new_elem_to_data.size(); ++i)
+		{
+			auto data_on_elem = new_elem_to_data[i];
+			for(unsigned datum_id : data_on_elem) {new_data_to_elem[datum_id].insert(i);}
+		}
+		for(unsigned i = 0; i < elems_modified.size(); ++i)
+		{
+			unsigned elem_id = elems_modified[i].ID();
+			elem_to_data_[elem_id] = new_elem_to_data[i];
+		}
+		for(unsigned datum_id : data_ids)
+		{
+			auto elems_on_datum = data_to_elems_[datum_id];
+			for(unsigned elem_id : elems_to_modify) {elems_on_datum.erase(elem_id);}
+			for(unsigned elem_id : elems_to_erase)  {elems_on_datum.erase(elem_id);}
+			for(unsigned i : new_data_to_elem.at(datum_id)) {elems_on_datum.insert(elems_modified[i].ID());}
+			data_to_elems_[datum_id] = elems_on_datum;
+		}
         // aggiornate le informazioni sul bordo
         update_boundary(facet);
+        // aggiornate le funzioni costo:
+        (cost_objs.update(elems_erased, elems_modified), ...);
         // aggiornato il costo delle facce
         compute_costs(facets_to_update, w, cost_objs...);
         // aggiornata la classe sgs_ (se necessario)
@@ -547,6 +547,7 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
 template<int M, int N>
 Mesh<M, N> Simplification<M, N>::build_mesh() const
 {
+	controlli_vari();
 	// vengono presi gli elementi e i nodi attivi
 	const auto & active_elems = connections_.get_active_elements();
     const auto & active_nodes = connections_.get_active_nodes();
@@ -571,6 +572,24 @@ Mesh<M, N> Simplification<M, N>::build_mesh() const
         new_id++;
     }
     return Mesh<M, N>(new_nodes, new_elems, new_boundary);
+}
+
+template<int M, int N>
+void Simplification<M, N>::controlli_vari() const
+{
+	auto elems_ids = connections_.get_active_elements();
+	for(const auto & elems_on_datum : data_to_elems_)
+	{
+		for(unsigned elem_id : elems_on_datum)
+			if(elems_ids.find(elem_id) == elems_ids.end())
+				std::cout<<"a qualche dato sono connessi elementi eliminati\n";
+	}
+	std::unordered_set<unsigned> all_data;
+	for(const auto & data_on_elem : elem_to_data_)
+		all_data.insert(data_on_elem.begin(), data_on_elem.end());
+	if(all_data.size() != data_.rows())
+		std::cout<<"dati trovati nelle connessioni: "<<all_data.size()<<", dati totali: "<<data_.rows()<<"\n";
+	std::cout<<"fine controlli\n";
 }
 
 } // fdapde
