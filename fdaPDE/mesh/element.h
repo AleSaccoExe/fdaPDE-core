@@ -200,17 +200,17 @@ bool Element<2, 3>::intersection(const Element<2, 3>& other_el) const
 {
     // Compute the normal to the triangle and the RHS 
     // of the equation of the plane the triangle lies in
-    auto A = coords_[0];
-    auto B = coords_[1];
-    auto C = coords_[2];
+    SVector<3> A = coords_[0];
+    SVector<3> B = coords_[1];
+    SVector<3> C = coords_[2];
 
-    auto D = other_el.coords_[0];
-    auto E = other_el.coords_[1];
-    auto F = other_el.coords_[2];
+    SVector<3> D = other_el.coords_[0];
+    SVector<3> E = other_el.coords_[1];
+    SVector<3> F = other_el.coords_[2];
     
-    auto N = (B - A).cross(C - B);
+    SVector<3> N = (B - A).cross(C - B);
     N.normalize();
-    auto RHS = N.dot(A);
+    double RHS = N.dot(A);
 
     // Extract the maximum coordinate of N
     int z = getMaxCoord(N); // coordinata massima

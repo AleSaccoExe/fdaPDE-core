@@ -480,7 +480,7 @@ TEST(simplification_test, only_geo)
     DataDispCost<2, 3> data_disp_cost;
 
     // MeshLoader<Mesh<2, 3>> meshloader("surface");
-    std::ifstream mesh_file("../../../meshes/pawn.inp");
+    std::ifstream mesh_file("../../../meshes/brain.inp");
     int n_nodes, n_elements;
     std::string line;
     getline(mesh_file, line);
@@ -526,11 +526,11 @@ TEST(simplification_test, only_geo)
     std::cout<<"nodi mesh: "<<n_nodes<<"\nInserire il numero di nodi\n";
     unsigned target_nodes;
     std::cin>>target_nodes;
-    // std::array<double, 2> w = {0.5, 0.5};
-    std::array<double, 3> w = {1./3., 1./3., 1./3.};
+    std::array<double, 1> w = {1.0};
+    // std::array<double, 3> w = {1./3., 1./3., 1./3.};
     auto start = Clock::now();
-    simp.simplify(target_nodes, w, geom_cost, data_dist_cost, data_disp_cost);
-    // simp.simplify(target_nodes, w, geom_cost, data_dist_cost);
+    // simp.simplify(target_nodes, w, geom_cost, data_dist_cost, data_disp_cost);
+    simp.simplify(target_nodes, w, geom_cost);
     auto end = Clock::now();
     auto elapsed = duration_cast<duration<double>>(end - start);
     std::cout<<"simplificazione finita. Tempo impiegato: "<<elapsed.count()<<"\n";
@@ -544,6 +544,36 @@ TEST(simplification_test, only_geo)
     file_nodes.close();
     file_data.close();
     file_elems.close();
+    /*
+    Connections conns(mesh);
+    unsigned facet_id = 150;
+    std::array<int, 2> facet = mesh.facet(facet_id).node_ids();
+    auto elems_to_modify_ids = conns.elems_modified_in_collapse(facet);
+    auto elems_modified = simp.modify_elements(elems_to_modify_ids, facet, 0.5*(mesh.node(facet[0]) + mesh.node(facet[1])) );
+    std::vector<Element<2, 3>> elems_to_modify;
+    for(unsigned elem_id : elems_to_modify_ids) {elems_to_modify.push_back(mesh.element(elem_id));}
+    std::ofstream file_elems_before("../../../meshes/elems_before.txt");
+    std::ofstream file_elems_after("../../../meshes/elems_after.txt");
+    for(unsigned i = 0; i < elems_to_modify.size(); ++i)
+    {
+        auto coords_before = elems_to_modify[i].coords();
+        auto coords_after = elems_modified[i].coords();
+        for(unsigned j = 0; j < 3; ++j)
+        {
+            for(unsigned k = 0; k < 3; ++k){
+                file_elems_after<<coords_after[j][k]<<" ";
+                file_elems_before<<coords_before[j][k]<<" ";
+            }
+            file_elems_before<<std::endl;
+            file_elems_after<<std::endl;
+        }
+
+    }
+    file_elems_before.close();
+    file_elems_after.close();
+    */
+
+
 
     std::cout<<"scrivere il nome del file di qoi e dist\n";
     std::string nome_file;
@@ -557,14 +587,16 @@ TEST(simplification_test, only_geo)
         // Scriviamo il numero nel file di testo
         file_dist << (new_pos - orig_pos).norm() << std::endl;
     }
+    std::cout<<"distanze scritte\n";
 
     // Chiudiamo il file dopo aver scritto tutti i numeri
     file_dist.close();
+    /*
     std::ofstream file_qoi("../../../meshes/qoi_"+nome_file+".txt");
     auto active_elems = simp.active_elems();
     for(auto elem_id : active_elems)
         file_qoi<<data_disp_cost.qoi_[elem_id]<<std::endl;
-    file_qoi.close();
+    file_qoi.close();*/
 
 
 

@@ -112,13 +112,13 @@ struct DataDispCost{
 		for(unsigned datum_id : data_ids)
 		{
 			auto patch = p_simp_->data_to_elems(datum_id).size();
-			/*
+			
 			if (patch == 1)
 				Nt += 1.;
 			else
 				Nt += 1./patch;
-				*/
-			Nt += 1./patch;
+				
+			// Nt += 1./patch;
 		}
 		return Nt;
 	}

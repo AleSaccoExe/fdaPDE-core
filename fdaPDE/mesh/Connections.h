@@ -370,7 +370,7 @@ std::unordered_set<unsigned> Connections::replace_node_in_node_to_nodes(unsigned
 void Connections::replace_node_in_node_to_nodes(unsigned old_id, unsigned new_id)
 {
 	active_nodes.erase(old_id);
-	auto & old_conn = node_to_nodes[old_id];
+	const auto & old_conn = node_to_nodes[old_id];
 	for(unsigned id_node : old_conn)
 	{
 		node_to_nodes[new_id].insert(id_node);

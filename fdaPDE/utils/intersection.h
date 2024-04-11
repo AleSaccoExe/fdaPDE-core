@@ -82,8 +82,8 @@ std::tuple<Line2Plane, Point2Seg, double> intSegPlane
         double t;
         
         // Compute numerator and denumerator of Equation (7.7), p. 228
-        auto q_plane = D - Q.dot(N);
-        auto den = (R - Q).dot(N);
+        double q_plane = D - Q.dot(N);
+        double den = (R - Q).dot(N);
         
         //
         // The segment is parallel to the plane
@@ -112,7 +112,7 @@ std::tuple<Line2Plane, Point2Seg, double> intSegPlane
             
         // Check if the plane and the segment intersect
         // in the ray vertex of the segment
-        auto r_plane = D - R.dot(N);
+        double r_plane = D - R.dot(N);
         if ((-TOLL <= r_plane) && (r_plane <= TOLL))
             return std::make_tuple(l2p, p2s, 1.);
         
@@ -149,10 +149,10 @@ IntersectionType intSegSeg2d(const Eigen::Vector2d & q1,
     {
         double TOLL = DOUBLE_TOLERANCE;
         // Compute signed area of the triangles q1r1q2, q1r1r2, q2r2q1, q2r2r1
-        auto q1r1q2 = getTriArea2d(q1,r1,q2);
-        auto q1r1r2 = getTriArea2d(q1,r1,r2);
-        auto q2r2q1 = getTriArea2d(q2,r2,q1);
-        auto q2r2r1 = getTriArea2d(q2,r2,r1);
+        double q1r1q2 = getTriArea2d(q1,r1,q2);
+        double q1r1r2 = getTriArea2d(q1,r1,r2);
+        double q2r2q1 = getTriArea2d(q2,r2,q1);
+        double q2r2r1 = getTriArea2d(q2,r2,r1);
         
         //
         // The segments are collinear
@@ -280,9 +280,9 @@ Point2Tri inTri2d(const Eigen::Vector2d & p,
     {
         double TOLL = DOUBLE_TOLERANCE;
         // Compute signed area of the triangle pab, pbc and pac
-        auto pab = getTriArea2d(p,a,b);
-        auto pbc = getTriArea2d(p,b,c);
-        auto pca = getTriArea2d(p,c,a);
+        double pab = getTriArea2d(p,a,b);
+        double pbc = getTriArea2d(p,b,c);
+        double pca = getTriArea2d(p,c,a);
                 
         // If the areas are all positive or all negative:
         // the point is internal to the triangle
@@ -403,15 +403,15 @@ Point2Tri inTri3d(const Eigen::Vector3d & P,
         // Compute the normal to the triangle and the RHS 
         // of the equation of the plane the triangle lies in
 
-        auto N = ((B - A).cross(C - B));
+        SVector<3> N = ((B - A).cross(C - B));
         N.normalize();
-        auto D = N.dot(A);
+        double D = N.dot(A);
         
         //
         // Test if the point belongs to the plane of the triangle
         //
         
-        auto dist = abs(N.dot(P) - D);
+        double dist = abs(N.dot(P) - D);
         if (dist > TOLL)
             return Point2Tri::EXTERN;
             

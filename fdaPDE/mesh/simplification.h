@@ -4,6 +4,7 @@
 #include "mesh.h"
 #include "StructuredGridSearch.h"
 #include "connections.h"
+#include <chrono>
 
 namespace fdapde{
 namespace core{
@@ -43,7 +44,7 @@ private:
     void erase_facets(const std::unordered_set<unsigned> & facet_ids);
     // modifica le facce in input usando le informazioni in facet
     void modify_facets(const std::unordered_set<unsigned> & facet_ids, const FacetType & facet);
-    std::vector<Element<M, N>> modify_elements(std::unordered_set<unsigned> & elem_ids, const FacetType & facet, SVector<N> new_coord) const;
+    
     void update_boundary(const FacetType & facet);
     // metodo per sommare i costi con i pesi
     template<std::size_t K, typename CostType_, typename... CostTypes_>
@@ -82,6 +83,7 @@ public:
 	const DMatrix<double> & get_data() const {return data_;}
 
 	void controlli_vari() const;
+	std::vector<Element<M, N>> modify_elements(std::unordered_set<unsigned> & elem_ids, const FacetType & facet, SVector<N> new_coord) const;
 
 	// getters
 	std::set<unsigned> active_elems() const {return connections_.get_active_elements();}
@@ -153,6 +155,10 @@ template<int M, int N>
 template<std::size_t K, typename... Args>
 void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, const std::array<double, K>& w, Args&&... cost_objs)
 {
+	using Clock = std::chrono::high_resolution_clock;
+    using std::chrono::duration;
+    using std::chrono::duration_cast;
+
 	bool max_to_update = false;
 	for(unsigned facet_id : facet_ids){
 		const auto & facet = facets_[facet_id];
@@ -166,6 +172,7 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
 	    auto elems_to_erase_ids = connections_.elems_erased_in_collapse(facet);
 	    // viene creato un vettore degli elementi involved nel collapse di facet
         std::vector<Element<M, N>> elems_to_modify;
+        elems_to_modify.reserve(elems_to_modify_ids.size());
         for(unsigned elem_id : elems_to_modify_ids) {elems_to_modify.push_back(elems_vec_[elem_id]); }
         std::vector<Element<M, N>> elems_to_erase;
         for(unsigned elem_id : elems_to_erase_ids) {elems_to_erase.push_back(elems_vec_[elem_id]); }
@@ -175,54 +182,74 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
             data_ids.insert(elem_to_data_[elem_id].begin(), elem_to_data_[elem_id].end());
         for(unsigned elem_id : elems_to_modify_ids)
             data_ids.insert(elem_to_data_[elem_id].begin(), elem_to_data_[elem_id].end());
+        // vengono salvate le vecchie normali agli elementi
+        std::vector<SVector<N>> old_normals;
+        old_normals.reserve(elems_to_modify_ids.size());
+        for(unsigned elem_id : elems_to_modify_ids) { old_normals.push_back(elems_vec_[elem_id].hyperplane().normal()); }
+
+        auto start_for_collapse_points = Clock::now();
 	    for(auto collapse_point : collapse_points)
 	    {
 	    	std::vector<Element<M, N>> elems_modified = modify_elements(elems_to_modify_ids, facet, collapse_point);
-	        // calcolato il costo del collapse
-	        double cost = sum_costs(w, elems_to_modify, elems_to_erase, elems_modified, collapse_point, data_ids,
-	        						cost_objs...);
-	        // double cost = (... + cost_objs(elems_to_modify, elems_to_erase, elems_modified, collapse_point, data_ids));
-	        tmp_costs_map[cost] = collapse_point;
+	    	// vengono calcolate le nuove normali agli elementi
+	    	std::vector<SVector<N>> new_normals;
+	    	new_normals.reserve(elems_modified.size());
+	    	for(const auto & elem : elems_modified) { new_normals.push_back(elem.hyperplane().normal()); }
+	    	// controllo sulla validità del collapse
+	    	bool valid_collapse = true;
+	    	for(unsigned i = 0; i < elems_modified.size(); ++i)
+	        { valid_collapse = valid_collapse && ( elems_modified[i].measure()>DOUBLE_TOLERANCE )
+	        								  && ( new_normals[i].dot(old_normals[i]) > DOUBLE_TOLERANCE ); }
+	     	if(valid_collapse)
+	     	{
+		        // calcolato il costo del collapse
+		        double cost = sum_costs(w, elems_to_modify, elems_to_erase, elems_modified, collapse_point, data_ids,
+		        						cost_objs...);
+		        // double cost = (... + cost_objs(elems_to_modify, elems_to_erase, elems_modified, collapse_point, data_ids));
+		        tmp_costs_map[cost] = collapse_point;
+		    }
 	    }
+	    auto end_for_collapse_points = Clock::now();
+	    // std::cout<<"tempo for su collapse_points: "<<duration_cast<duration<double>>(end_for_collapse_points - start_for_collapse_points).count()<<"\n";
 	    // ora si prende il costo minore e si controllano le intersezioni
+	    // prima dalla classe sgs_ vengono eliminate le informazioni su elementi modificati ed elementi eliminati
+	    sgs_.erase_elements(elems_to_modify_ids);
+	    sgs_.erase_elements(elems_to_erase_ids);
+	    unsigned loop_su_tmp_costs_map = 1;
+	    auto start_for_tmp_costs_map = Clock::now();
 	    for(auto it = tmp_costs_map.begin(); it != tmp_costs_map.end(); ++it)
 	    {
-	    	if(it->first > cost_threshold_)
-	    	{
-	    		cost_threshold_ = it->first;
-	    		std::cout<<"costi massimi da aggiornare: "<<it->first<<"\n";
-	    		max_to_update = true;
-	    		break;
-	    	}
+	    	bool valid_collapse = true;
+	    	loop_su_tmp_costs_map++;
+	    	if constexpr(K > 1){
+		    	if(it->first > cost_threshold_)
+		    	{
+		    		// cost_threshold_ = it->first;
+		    		cost_threshold_ = std::numeric_limits<double>::max();
+		    		std::cout<<"costi massimi da aggiornare: "<<it->first<<"\n";
+		    		max_to_update = true;
+		    		break;
+		    	}
+		    }
 	        // viene creato un vettore degli elementi modificati nel collapse di facet
-	        std::vector<Element<M, N>> elems_tmp = modify_elements(elems_to_modify_ids, facet, it->second);
-	        // ora passo a sgs il vettore di elementi elems_tmp, che è formato di elementi da modificare
-	        // e il set elems_to_erase. La classe provvede quindi a capire le possibili intersezioni date dal collapse di facet
-	        sgs_.update(elems_tmp, elems_to_erase_ids, false);
-	        bool valid_collapse = true;
-	        // controllo sull'area dei triangoli e sulle normali:
-	        for(auto & elem : elems_tmp)
-	        {
-	        	valid_collapse = valid_collapse && elem.measure()>DOUBLE_TOLERANCE;
-	        	valid_collapse = valid_collapse && 
-	        					 ( elem.hyperplane().normal().dot(elems_vec_[elem.ID()].hyperplane().normal()) > DOUBLE_TOLERANCE );
-	        }
-	        if(valid_collapse) // si esegue il check sulle intersezioni solo se i triangoli sono validi
-	        {
-
-	        for(auto & elem : elems_tmp){
+	        std::vector<Element<M, N>> elems_modified = modify_elements(elems_to_modify_ids, facet, it->second);
+	        // ora passo a sgs il vettore di elementi elems_modified, che è formato di elementi da modificare
+	        // La classe provvede quindi a capire le possibili intersezioni date dal collapse di facet
+	        // sgs_.update(elems_modified, elems_to_erase_ids, false);
+	        for(const auto & elem : elems_modified){
 	            auto elems_to_check = sgs_.get_neighbouring_elements(elem);
+	            // std::cout<<"elementi da controllare per le intersezioni: "<<elems_to_check.size()<<"\n";	           
 	            for(unsigned elem_id : elems_to_check)
+	        	{ 
 	                if(elems_vec_[elem_id].intersection(elem))
 	                {
 	                    // std::cout<<"trovata intersezione\n";
 	                    valid_collapse = false;
 	                    break;
-	                }  
-	            if(!valid_collapse)
-	                break;
-	        }
-
+	                } 
+	            }
+	            if(!valid_collapse) 
+	            	break;
 	    	}
 	        // se non ci sono intersezioni si procede ad aggiungere le informazioni nelle strutture adeguate
 	        if(valid_collapse)
@@ -233,31 +260,30 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
 	        }
 
 	    }
-	    std::vector<Element<M, N>> elems_tmp; // questo vettore viene ora riempito di elementi da aggiungere
+	    auto end_for_tmp_costs_map = Clock::now();
+	    // std::cout<<"tempo for su tmp_costs_map: "<<duration_cast<duration<double>>(end_for_tmp_costs_map - start_for_tmp_costs_map).count()<<"\n";
 	    // a questo punto si ripristina la classe sgs al suo stato iniziale
-	    if(max_to_update) {break;}
-	    for(unsigned elem_id : elems_to_erase_ids) // loop sugli elementi che erano stati eliminati
-	        elems_tmp.push_back(elems_vec_[elem_id]);
-	    sgs_.add_elements(elems_tmp);
-	    elems_tmp.clear(); // ora viene riempito di elementi da modificare
-	    for(unsigned elem_id : elems_to_modify_ids)
-	        elems_tmp.push_back(elems_vec_[elem_id]);
-	    sgs_.update_f(elems_tmp);
-
+	    sgs_.add_elements(elems_to_modify);
+	    // sgs_.update_f(elems_tmp);
+	    sgs_.add_elements(elems_to_erase);
+	    // se i costi massimi sono da aggiornare non si prosegue con il controllo sulle intersezioni
+	    if constexpr(K > 1) { if(max_to_update) {break;} }
 	    } // if(connections_.nodes_on_facet(facet).size()==2)
     }
+    if constexpr(K > 1){
     if(max_to_update)
-    {
-    	std::set<unsigned> all_facets;
-    	for(const auto & pair : facets_cost_) {all_facets.insert(pair.first);}
-    	all_facets.insert(facet_ids.begin(), facet_ids.end());
-    	facets_cost_.clear();
-    	costs_map_.clear();
-    	update_max_costs(all_facets, cost_objs...);
-    	compute_costs(all_facets, w, cost_objs...);
-    	std::cout<<"finito l'aggiornamento dei costi\n";
-    	cost_threshold_ = 1.0;
-    }
+	    {
+	    	std::set<unsigned> all_facets;
+	    	for(const auto & pair : facets_cost_) {all_facets.insert(pair.first);}
+	    	all_facets.insert(facet_ids.begin(), facet_ids.end());
+	    	facets_cost_.clear();
+	    	costs_map_.clear();
+	    	update_max_costs(all_facets, cost_objs...);
+	    	compute_costs(all_facets, w, cost_objs...);
+	    	std::cout<<"finito l'aggiornamento dei costi\n";
+	    	cost_threshold_ = 1.0;
+	    }
+	}	
 } // compute_costs
 
 template<int M, int N>
@@ -373,16 +399,21 @@ void Simplification<M, N>::update_max_costs(const std::set<unsigned> & facet_ids
             data_ids.insert(elem_to_data_[elem_id].begin(), elem_to_data_[elem_id].end());
         for(unsigned elem_id : elems_to_modify_ids)
             data_ids.insert(elem_to_data_[elem_id].begin(), elem_to_data_[elem_id].end());
+        std::vector<SVector<N>> old_normals; // da utilizzare per controllare le inversioni degli elementi
+   		old_normals.reserve(elems_to_modify_ids.size());
+        for(unsigned elem_id : elems_to_modify_ids) { old_normals.push_back(elems_vec_[elem_id].hyperplane().normal()); }
 	    for(auto collapse_point : collapse_points)
 	    {
 	    	std::vector<Element<M, N>> elems_modified = modify_elements(elems_to_modify_ids, facet, collapse_point);
+	    	std::vector<SVector<N>> new_normals; // contiene le normali degli elementi modificati
+	    	new_normals.reserve(elems_modified.size());
+	    	for(const auto & elem : elems_modified) { new_normals.push_back(elem.hyperplane().normal()); }
 	    	bool valid_collapse = true;
 	        // controllo sull'area dei triangoli e sulle normali:
-	        for(auto & elem : elems_modified)
+	        for(unsigned i = 0; i < elems_modified.size(); ++i)
 	        {
-	        	valid_collapse = valid_collapse && elem.measure()>DOUBLE_TOLERANCE;
-	        	valid_collapse = valid_collapse && 
-	        					 ( elem.hyperplane().normal().dot(elems_vec_[elem.ID()].hyperplane().normal()) > DOUBLE_TOLERANCE );
+	        	valid_collapse = valid_collapse && ( elems_modified[i].measure()>DOUBLE_TOLERANCE )
+	        									&& ( new_normals[i].dot(old_normals[i]) > DOUBLE_TOLERANCE );
 	        }
 	        // calcolato il costo del collapse
 	        if(valid_collapse)
@@ -431,8 +462,7 @@ template<int M, int N>
 void Simplification<M, N>::update_boundary(const FacetType & facet)
 {
 	int nodes_on_boundary = 0;
-	for(unsigned node_id : facet)
-		nodes_on_boundary += boundary_(node_id);
+	for(unsigned node_id : facet) { nodes_on_boundary += boundary_(node_id); }
 	if(nodes_on_boundary != 0)
 		boundary_(facet[0]) = 1;
 }
@@ -445,6 +475,10 @@ template<int M, int N>
 template<std::size_t K, typename... Args>
 void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, Args&&... cost_objs)
 {
+	using Clock = std::chrono::high_resolution_clock;
+    using std::chrono::duration;
+    using std::chrono::duration_cast;
+
 	static_assert(K == sizeof...(cost_objs));
 	if(n_nodes >= n_nodes_)
 	{
@@ -474,7 +508,10 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
         // il vettore viene riempito con gli elementi modificati
 		std::vector<Element<M, N>> elems_modified = modify_elements(elems_to_modify, facet, collapse_info.second.second);
 		// vengono aggiornate le informazioni della classe sgs_
-		sgs_.update(elems_modified, elems_to_erase, true);
+		// sgs_.update(elems_modified, elems_to_erase, true);
+		sgs_.erase_elements(elems_to_modify);
+		sgs_.erase_elements(elems_to_erase);
+		sgs_.add_elements(elems_modified);
 		// vengono presi i dati da proiettare
         std::unordered_set<unsigned> data_ids;
         for(unsigned elem_id : elems_to_erase)
@@ -482,9 +519,12 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
         for(unsigned elem_id : elems_to_modify)
             data_ids.insert(elem_to_data_[elem_id].begin(), elem_to_data_[elem_id].end());
         // vengono proiettati i dati sugli elementi già modificati
+        auto start_project = Clock::now();
         auto new_elem_to_data = project(elems_modified, data_, data_ids);
+        auto end_project = Clock::now();
+        // std::cout<<"tempo project: "<<duration_cast<duration<double>>(end_project-start_project).count()<<"\n";
         // ora si può eseguire il collapse e dopo si cambiano le informazioni di data_to_elems e elem_to_data
-        for(auto & elem : elems_modified){ // loop sugli elementi modificati dalla contrazione
+        for(const auto & elem : elems_modified){ // loop sugli elementi modificati dalla contrazione
             // viene sostituito nel vettore l'elemento modificato
             elems_vec_[elem.ID()] = elem;
             // nella matrice degli elementi vengono modificati gli id dei nodi
@@ -499,13 +539,19 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
             elems_erased.push_back(elems_vec_[elem_id]);
         // vengono modificate le connessioni e prese le informazioni necessarie a modificare
         // le facce
+        auto start_collapse_facet = Clock::now();
         auto facets_pair = connections_.collapse_facet(facet, elems_erased);
+        auto end_collapse_facet = Clock::now();
+        // std::cout<<"tempo collapse_facet: "<<duration_cast<duration<double>>(end_collapse_facet - start_collapse_facet).count()<<"\n";
         assert(facets_pair.first.size()==2);
         // vengono eliminate le informazioni sulle facce che non esistono più
         facets_pair.first.insert(collapse_info.second.first);
         erase_facets(facets_pair.first);
         // e anche tutte le altre facce con costi da ricalcolare
+        auto start_facets_to_update = Clock::now();
         auto facets_to_update = connections_.facets_to_update(facet[0]);
+        auto end_facets_to_update = Clock::now();
+        // std::cout<<"tempo facets_to_update: "<<duration_cast<duration<double>>(end_facets_to_update - start_facets_to_update).count()<<"\n";
 		modify_facets(facets_pair.second, facet);
         erase_facets({facets_to_update.begin(), facets_to_update.end()});
         // vengono modificati gli id dei vertici delle facce
@@ -529,15 +575,27 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
 			for(unsigned i : new_data_to_elem.at(datum_id)) {elems_on_datum.insert(elems_modified[i].ID());}
 			data_to_elems_[datum_id] = elems_on_datum;
 		}
+		// aggiornata la classe sgs_ (se necessario)
+		bool to_refresh = false;
+		for(const auto & elem : elems_modified) { to_refresh = to_refresh || sgs_.check_elem_size(elem); }
+        if(to_refresh){
+        	std::cout<<"sgs da refreshare\n";
+        	auto start_refresh = Clock::now();
+        	sgs_.refresh(elems_vec_, connections_.get_active_elements(), connections_.get_active_nodes().size());
+        	auto end_refresh = Clock::now();
+        	std::cout<<"tempo sgs_.refresh : "<<duration_cast<duration<double>>(end_facets_to_update - start_facets_to_update).count()<<"\n";
+        }
         // aggiornate le informazioni sul bordo
         update_boundary(facet);
         // aggiornate le funzioni costo:
         (cost_objs.update(elems_erased, elems_modified), ...);
         // aggiornato il costo delle facce
+        std::cout<<"facets_to_update.size() = "<<facets_to_update.size()<<"\n";
+        auto start_compute_costs = Clock::now();
         compute_costs(facets_to_update, w, cost_objs...);
-        // aggiornata la classe sgs_ (se necessario)
-        if(sgs_.to_refresh())
-        	sgs_.refresh(elems_vec_, connections_.get_active_elements(), connections_.get_active_nodes().size());
+        auto end_compute_costs = Clock::now();
+    	std::cout << "tempo compute_costs: "<<duration_cast<duration<double>>(end_compute_costs - start_compute_costs).count()<<"\n";
+
         // finito il collapse vengono tolti M - 1 nodi
         n_nodes_ = n_nodes_ - (M-1);
 	}
