@@ -66,6 +66,8 @@ struct GeomCost{
 
 	void update(const std::vector<Element<2, 3>> & elems_to_delete,
 				const std::vector<Element<2, 3>> & elems_modified) {}
+	bool check_update() {return false;}
+	void set_threshold(double new_threshold) {}
 
 	double max = 0.0;
 	double min_ = std::numeric_limits<double>::max();

@@ -2,790 +2,567 @@
 #define __PROJECTION_H__
 
 #include <unordered_set>
+#include <map>
 #include <vector>
+
 #include "element.h"
 
 namespace fdapde{
 namespace core{
 
-// proiezione dei dati sugli elementi forniti in input.
-	/*
-std::vector<std::pair<int, int>> project(const std::vector<Element<2, 3>> & elems, 
- 	DMatrix<double> & data, const std::unordered_set<unsigned> & ids)
-{
-	constexpr int N = 3;
-	std::vector<std::pair<int, int>> new_positions;
-	for(unsigned id : ids) // loop sui dati
+// ritorna la mappa elemento -> dati
+std::vector<std::unordered_set<unsigned>> project(const std::vector<Element<2, 3>>&  elems, DMatrix<double> & data, 
+										const std::unordered_set<unsigned>& data_ids)
+{ 
+	std::vector<std::unordered_set<unsigned>> new_elem_to_data(elems.size());
+	for(unsigned datum_id : data_ids) // loop sui dati da proiettare
 	{
-		double opt_dist(std::numeric_limits<double>::max());
-		bool inside_elem = false;
-		unsigned opt_id; // id della posizione ottima del dato
-		SVector<N> datum = data.row(id);
-		SVector<N> opt_pos; // la posizione ottimale del dato
-		for(const auto & elem : elems) // loop sugli elementi
+		unsigned opt_elem;
+		SVector<3> datum = data.row(datum_id);
+		SVector<3> opt_pos = datum; // posizione ottima del punto
+		double opt_dist = std::numeric_limits<double>::max(); // distanza della proiezione
+		bool done = false;
+		bool inside = false;
+		bool already_inside = false;
+		for(unsigned i = 0; i < elems.size(); ++i) // loop sugli elementi
 		{
-			SVector<N> p_datum = elem.hyperplane().project(datum); // viene proiettato il dato
-			if(elem.contains(p_datum)) // se l'elemento contiene il dato proiettato sul piano del triangolo
+			const auto & elem = elems[i];
+			// si vede se il dato coincide con un vertice
+			for(SVector<3> vertex : elem.coords())
+				if((vertex-datum).norm()<DOUBLE_TOLERANCE) // il dato coincide col vertice
+				{
+					opt_pos = datum;
+					opt_dist = 0.0;
+					new_elem_to_data[i].insert(datum_id);
+					done = true;
+					already_inside = true;
+				}
+			// si vede se il dato giace su uno spigolo del triangolo
+			for(unsigned v1 = 0; v1 < 3; ++v1)
+				for(unsigned v2 = v1+1; v2 < 3; ++v2)
+				{
+					SVector<3> A = elem.coords()[v1];
+					SVector<3> B = elem.coords()[v2];
+					if( std::abs( (A-datum).norm()+(B-datum).norm()-(A-B).norm() ) < DOUBLE_TOLERANCE ) // il punto è dentro il lato AB
+					{
+						opt_pos = datum;
+						opt_dist = 0.0;
+						new_elem_to_data[i].insert(datum_id);
+						done = true;
+						already_inside = true;
+					}
+				}
+			if(elem.contains(datum)) // si verifica se il punto è interno al triangolo
 			{
-				inside_elem = true; // il dato cade in un elemento
-				double dist = (datum - p_datum).norm(); // distanza
-				else if(dist < opt_dist)
+				opt_pos = datum;
+				opt_dist = 0.0;
+				new_elem_to_data[i].insert(datum_id);
+				done = true;
+				already_inside = true;
+			}
+			if(!already_inside) // il dato deve essere proiettato
+			{
+				SVector<3> p_datum = elem.hyperplane().project(datum); // viene proiettato il dato
+				double dist = (datum - p_datum).norm();
+				if(elem.contains(p_datum) && dist<opt_dist)
 				{
 					opt_dist = dist;
 					opt_pos = p_datum;
-					opt_id = elem.ID();
+					opt_elem = i;
+					done = true;
+					inside = true;
 				}
 			}
-		} // loop sugli elementi
-		if(inside_elem)
+		} // fine loop sugli elementi
+		if(inside && !already_inside) {new_elem_to_data[opt_elem].insert(datum_id);}
+		if(!done) // il dato non poteva essere proiettato all'interno di un elemento
 		{
-			data.row(id) = opt_pos;
-			new_positions.push_back({-2, opt_id}); // -2 indica che è nell'elemento opt_id
-		}
-		else // il dato non può essere proiettato dentro gli elementi
-		{
-			unsigned node_id1, node_id2;
-			opt_dist = std::numeric_limits<double>::max();
-			for(const auto & elem : elems) // loop sugli elementi
+			std::set<unsigned> elems_on_datum; // contiene gli elementi a cui il dato appartiene
+			for(unsigned i = 0; i < elems.size(); ++i)
 			{
-				// vengono presi i nodi dell'elemento
-				auto A = elem.coords()[0];
-				auto B = elem.coords()[1];
-				auto C = elem.coords()[2];
-				// lato AB
-				double t = -( datum - A ).dot( A - B )/( B - A ).squaredNorm();
-				if(t > 0 && t < 1) // la proiezione cade dentro al lato
+				const auto & elem = elems[i];
+				SVector<3> A = elem.coords()[0];
+				SVector<3> B = elem.coords()[1];
+				SVector<3> C = elem.coords()[2];
+				// proiezione sul lato AB
+				double t = -(A-datum).dot(B-A)/(B-A).squaredNorm();
+				SVector<3> p_datum = A + t*(B-A);
+				if(0 <= t && t <= 1) // il punto cade nel lato AB
 				{
-					SVector<N> p_datum = A + t*(B - A);
-					double dist = (p_datum - datum).norm();
-					if(opt_dist > dist)
+					double dist = (p_datum-datum).norm();
+					if((p_datum-opt_pos).norm()<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
+					else if(dist < opt_dist-DOUBLE_TOLERANCE)
 					{
-						opt_dist = dist;
-						node_id1 = elem.node_ids()[0];
-						node_id2 = elem.node_ids()[1];
+						elems_on_datum.clear();
+						elems_on_datum.insert(i);
 						opt_pos = p_datum;
-					} 
+						opt_dist = dist;
+					}
 				}
-				else if(t <=0)
+				else if(t < 0) // la proiezione coincide con il punto A
 				{
 					double dist = (datum - A).norm();
-					if(opt_dist > dist)
+					if((A-opt_pos).norm()<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
+					else if(dist < opt_dist-DOUBLE_TOLERANCE)
 					{
-						opt_dist = dist;
-						node_id1 = -1; // vuol dire che la posizione ottima è sul vertice
-						node_id2 = elem.node_ids()[0]; // id del nodo A
+						elems_on_datum.clear();
+						elems_on_datum.insert(i);
 						opt_pos = A;
+						opt_dist = dist;
 					}
 				}
-				else if(t >= 1)
+				else if(t > 1) // la proiezione coincide con il punto B
 				{
 					double dist = (datum - B).norm();
-					if(opt_dist > dist)
+					if((B-opt_pos).norm()<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
+					else if(dist < opt_dist-DOUBLE_TOLERANCE)
 					{
-						opt_dist = dist;
-						node_id1 = -1; // vuol dire che la posizione ottima è sul vertice
-						node_id2 = elem.node_ids()[1]; // id del nodo B
+						elems_on_datum.clear();
+						elems_on_datum.insert(i);
 						opt_pos = B;
+						opt_dist = dist;
 					}
 				}
-				// lato BC
-				t = -(datum - B).dot(B - C)/(C- B).squaredNorm();
-				if(t > 0 && t < 1) // la proiezione cade dentro al lato
+				// proiezione sul lato BC
+				t = -(B-datum).dot(C-B)/(C-B).squaredNorm();
+				p_datum = B + t*(C-B);
+				if(0 <= t && t <= 1) // il punto cade nel lato AB
 				{
-					SVector<N> p_datum = B + t*(C - B);
-					double dist = (p_datum - datum).norm();
-					if(opt_dist > dist)
+					double dist = (p_datum-datum).norm();
+					if((p_datum-opt_pos).norm()<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
+					else if(dist < opt_dist-DOUBLE_TOLERANCE)
 					{
-						opt_dist = dist;
-						node_id1 = elem.node_ids()[1];
-						node_id2 = elem.node_ids()[2];
+						elems_on_datum.clear();
+						elems_on_datum.insert(i);
 						opt_pos = p_datum;
-					} 
+						opt_dist = dist;
+					}
 				}
-				else if(t <=0)
+				else if(t < 0) // la proiezione coincide con il punto B
 				{
 					double dist = (datum - B).norm();
-					if(opt_dist > dist)
+					if((B-opt_pos).norm()<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
+					else if(dist < opt_dist-DOUBLE_TOLERANCE)
 					{
-						opt_dist = dist;
-						node_id1 = -1; // vuol dire che la posizione ottima è sul vertice
-						node_id2 = elem.node_ids()[1]; // id del nodo B
+						elems_on_datum.clear();
+						elems_on_datum.insert(i);
 						opt_pos = B;
+						opt_dist = dist;
 					}
 				}
-				else if(t >= 1)
+				else if(t > 1) // la proiezione coincide con il punto C
 				{
 					double dist = (datum - C).norm();
-					if(opt_dist > dist)
+					if((C-opt_pos).norm()<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
+					else if(dist < opt_dist-DOUBLE_TOLERANCE)
 					{
-						opt_dist = dist;
-						node_id1 = -1; // vuol dire che la posizione ottima è sul vertice
-						node_id2 = elem.node_ids()[2]; // id del nodo C
+						elems_on_datum.clear();
+						elems_on_datum.insert(i);
 						opt_pos = C;
+						opt_dist = dist;
 					}
 				}
-				// lato CA
-				t = -(datum - C).dot(C - A)/(A - C).squaredNorm();
-				if(t > 0 && t < 1) // la proiezione cade dentro al lato
+				// proiezione sul lato CA
+				t = -(C-datum).dot(A-C)/(A-C).squaredNorm();
+				p_datum = C + t*(A-C);
+				if(0 <= t && t <= 1) // il punto cade nel lato AB
 				{
-					SVector<N> p_datum = C + t*(A - C);
-					double dist = (p_datum - datum).norm();
-					if(opt_dist > dist)
+					double dist = (p_datum-datum).norm();
+					if((p_datum-opt_pos).norm()<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
+					else if(dist < opt_dist-DOUBLE_TOLERANCE)
 					{
-						opt_dist = dist;
-						node_id1 = elem.node_ids()[2];
-						node_id2 = elem.node_ids()[0];
+						elems_on_datum.clear();
+						elems_on_datum.insert(i);
 						opt_pos = p_datum;
-					} 
-				}
-				else if(t <=0)
-				{
-					double dist = (datum - C).norm();
-					if(opt_dist > dist)
-					{
 						opt_dist = dist;
-						node_id1 = -1; // vuol dire che la posizione ottima è sul vertice
-						node_id2 = elem.node_ids()[0]; // id del nodo C
-						opt_pos = C;
 					}
 				}
-				else if(t >= 1)
+				else if(t < 0) // la proiezione coincide con il punto C
+				{
+					double dist = (datum - C).norm();
+					if((C-opt_pos).norm()<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
+					else if(dist < opt_dist-DOUBLE_TOLERANCE)
+					{
+						elems_on_datum.clear();
+						elems_on_datum.insert(i);
+						opt_pos = C;
+						opt_dist = dist;
+					}
+				}
+				else if(t > 1) // la proiezione coincide con il punto A
 				{
 					double dist = (datum - A).norm();
-					if(opt_dist > dist)
+					if((A-opt_pos).norm()<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
+					else if(dist < opt_dist-DOUBLE_TOLERANCE)
 					{
-						opt_dist = dist;
-						node_id1 = -1; // vuol dire che la posizione ottima è sul vertice
-						node_id2 = elem.node_ids()[0]; // id del nodo A
+						elems_on_datum.clear();
+						elems_on_datum.insert(i);
 						opt_pos = A;
+						opt_dist = dist;
 					}
 				}
-				
-				
-			} // loop sugli elementi
-			// aggiornata la posizione del dato
-			data.row(id) = opt_pos;
-			new_positions.push_back({node_id1, node_id2});
-		} // else 
+ 			} // fine loop su elementi
+ 			for(unsigned elem_idx : elems_on_datum) {new_elem_to_data[elem_idx].insert(datum_id);}
+		} // if(!done)
+		data.row(datum_id) = opt_pos;
+	} // fine loop sui dati
+	return new_elem_to_data;
+} // project
 
-	} // loop sui dati
-	return new_positions;
-}
-*/
 
-std::vector<std::unordered_set<unsigned>> project(const std::vector<Element<2, 3>> & elems, 
- 	DMatrix<double> & data, const std::unordered_set<unsigned> & data_ids)
+std::vector<std::set<unsigned>> projection_info(const std::vector<Element<2, 3>>&  elems, const DMatrix<double> & data, 
+										const std::unordered_set<unsigned>& data_ids)
 {
-	std::vector<std::unordered_set<unsigned>> new_elem_to_data(elems.size());
-	constexpr int N = 3;
-
-	for(unsigned datum_id : data_ids) // loop sui dati
+	std::vector<std::set<unsigned>> new_elem_to_data(elems.size());
+	for(unsigned datum_id : data_ids) // loop sui dati da proiettare
 	{
-		SVector<N> opt_pos; // posizione del dato dopo la proiezione
-		double opt_dist(std::numeric_limits<double>::max()); // distanza della proiezione
-		bool inside_elem = false;
-		SVector<N> datum = data.row(datum_id); // dato da proiettare
-		// il set degli elementi a cui il dato appartiene
-		std::set<unsigned> elems_on_datum;
+		unsigned opt_elem;
+		SVector<3> datum = data.row(datum_id);
+		SVector<3> opt_pos = datum; // posizione ottima del punto
+		double opt_dist = std::numeric_limits<double>::max(); // distanza della proiezione
+		bool done = false;
+		bool already_inside = false;
+		bool inside = false;
 		for(unsigned i = 0; i < elems.size(); ++i) // loop sugli elementi
 		{
 			const auto & elem = elems[i];
-			SVector<N> p_datum = elem.hyperplane().project(datum); // viene proiettato il dato
-			if(elem.contains(p_datum)) // se l'elemento contiene il dato proiettato sul piano del triangolo
-			{
-				inside_elem = true;
-				double dist = (datum - p_datum).norm(); // distanza
-				// il dato potrebbe essere sul bordo:
-				if( dist < DOUBLE_TOLERANCE )
+			// si vede se il dato coincide con un vertice
+			for(SVector<3> vertex : elem.coords())
+				if((vertex-datum).norm()<DOUBLE_TOLERANCE) // il dato coincide col vertice
 				{
+					opt_pos = datum;
 					opt_dist = 0.0;
-					elems_on_datum.insert(i);
-					opt_pos = datum; // il dato non è veramente proiettato
+					new_elem_to_data[i].insert(datum_id);
+					done = true;
+					already_inside = true;
 				}
-				else if(dist < opt_dist)
+			// si vede se il dato giace su uno spigolo del triangolo
+			for(unsigned v1 = 0; v1 < 3; ++v1)
+				for(unsigned v2 = v1+1; v2 < 3; ++v2)
+				{
+					SVector<3> A = elem.coords()[v1];
+					SVector<3> B = elem.coords()[v2];
+					if( std::abs( (A-datum).norm()+(B-datum).norm()-(A-B).norm() ) < DOUBLE_TOLERANCE ) // il punto è dentro il lato AB
+					{
+						opt_pos = datum;
+						opt_dist = 0.0;
+						new_elem_to_data[i].insert(datum_id);
+						done = true;
+						already_inside = true;
+					}
+				}
+			if(elem.contains(datum)) // si verifica se il punto è interno al triangolo
+			{
+				opt_pos = datum;
+				opt_dist = 0.0;
+				new_elem_to_data[i].insert(datum_id);
+				done = true;
+				already_inside = true;
+			}
+			if(!already_inside) // il dato deve essere proiettato
+			{
+				SVector<3> p_datum = elem.hyperplane().project(datum); // viene proiettato il dato
+				double dist = (datum - p_datum).norm();
+				if(elem.contains(p_datum) && dist<opt_dist)
 				{
 					opt_dist = dist;
-					elems_on_datum.clear();
-					elems_on_datum.insert(i);
-					opt_pos = p_datum; 
+					opt_pos = p_datum;
+					done = true;
+					opt_elem = i;
+					inside = true;
 				}
 			}
-		} // loop sugli elementi
-		if(inside_elem) {
-			for(unsigned elem_idx : elems_on_datum) {new_elem_to_data[elem_idx].insert(datum_id);}
-		}
-		else // il dato non può essere proiettato dentro gli elementi
+		} // fine loop sugli elementi
+		if(inside && !already_inside) {new_elem_to_data[opt_elem].insert(datum_id);}
+		if(!done) // il dato non poteva essere proiettato all'interno di un elemento
 		{
-			assert(elems_on_datum.size() == 0);
-			opt_dist = std::numeric_limits<double>::max();
-			for(unsigned i = 0; i < elems.size(); ++i) // loop sugli elementi
+			std::set<unsigned> elems_on_datum; // contiene gli elementi a cui il dato appartiene
+			for(unsigned i = 0; i < elems.size(); ++i)
 			{
 				const auto & elem = elems[i];
-				// vengono presi i nodi dell'elemento
-				auto A = elem.coords()[0];
-				auto B = elem.coords()[1];
-				auto C = elem.coords()[2];
-				// lato AB
-				double t = -( datum - A ).dot( A - B )/( B - A ).squaredNorm();
-				if(t > 0 && t < 1) // la proiezione cade dentro al lato
+				SVector<3> A = elem.coords()[0];
+				SVector<3> B = elem.coords()[1];
+				SVector<3> C = elem.coords()[2];
+				// proiezione sul lato AB
+				double t = -(A-datum).dot(B-A)/(B-A).squaredNorm();
+				SVector<3> p_datum = A + t*(B-A);
+				if(0 <= t && t <= 1) // il punto cade nel lato AB
 				{
-					SVector<N> p_datum = A + t*(B - A);
-					double dist = (p_datum - datum).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
-					else if(opt_dist > dist)
+					double dist = (p_datum-datum).norm();
+					if((p_datum-opt_pos).norm()<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
+					else if(dist < opt_dist-DOUBLE_TOLERANCE)
 					{
-						opt_dist = dist;
-						opt_pos = p_datum;
 						elems_on_datum.clear();
 						elems_on_datum.insert(i);
-					} 
+						opt_pos = p_datum;
+						opt_dist = dist;
+					}
 				}
-				else if(t <=0)
+				else if(t < 0) // la proiezione coincide con il punto A
 				{
 					double dist = (datum - A).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
-					else if(opt_dist > dist)
+					if((A-opt_pos).norm()<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
+					else if(dist < opt_dist-DOUBLE_TOLERANCE)
 					{
-						opt_dist = dist;
+						elems_on_datum.clear();
+						elems_on_datum.insert(i);
 						opt_pos = A;
-						elems_on_datum.clear();
-						elems_on_datum.insert(i);
+						opt_dist = dist;
 					}
 				}
-				else if(t >= 1)
+				else if(t > 1) // la proiezione coincide con il punto B
 				{
 					double dist = (datum - B).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
-					else if(opt_dist > dist)
+					if((B-opt_pos).norm()<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
+					else if(dist < opt_dist-DOUBLE_TOLERANCE)
 					{
-						opt_dist = dist;
-						opt_pos = B;
 						elems_on_datum.clear();
 						elems_on_datum.insert(i);
+						opt_pos = B;
+						opt_dist = dist;
 					}
 				}
-				// lato BC
-				t = -(datum - B).dot(B - C)/(C- B).squaredNorm();
-				if(t > 0 && t < 1) // la proiezione cade dentro al lato
+				// proiezione sul lato BC
+				t = -(B-datum).dot(C-B)/(C-B).squaredNorm();
+				p_datum = B + t*(C-B);
+				if(0 <= t && t <= 1) // il punto cade nel lato AB
 				{
-					SVector<N> p_datum = B + t*(C - B);
-					double dist = (p_datum - datum).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
-					else if(opt_dist > dist)
+					double dist = (p_datum-datum).norm();
+					if((p_datum-opt_pos).norm()<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
+					else if(dist < opt_dist-DOUBLE_TOLERANCE)
 					{
-						opt_dist = dist;
-						opt_pos = p_datum;
 						elems_on_datum.clear();
 						elems_on_datum.insert(i);
-					} 
+						opt_pos = p_datum;
+						opt_dist = dist;
+					}
 				}
-				else if(t <=0)
+				else if(t < 0) // la proiezione coincide con il punto B
 				{
 					double dist = (datum - B).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
-					else if(opt_dist > dist)
+					if((B-opt_pos).norm()<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
+					else if(dist < opt_dist-DOUBLE_TOLERANCE)
 					{
-						opt_dist = dist;
+						elems_on_datum.clear();
+						elems_on_datum.insert(i);
 						opt_pos = B;
-						elems_on_datum.clear();
-						elems_on_datum.insert(i);
+						opt_dist = dist;
 					}
 				}
-				else if(t >= 1)
+				else if(t > 1) // la proiezione coincide con il punto C
 				{
 					double dist = (datum - C).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
-					else if(opt_dist > dist)
+					if((C-opt_pos).norm()<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
+					else if(dist < opt_dist-DOUBLE_TOLERANCE)
 					{
-						opt_dist = dist;
-						opt_pos = C;
 						elems_on_datum.clear();
 						elems_on_datum.insert(i);
+						opt_pos = C;
+						opt_dist = dist;
 					}
 				}
-				// lato CA
-				t = -(datum - C).dot(C - A)/(A - C).squaredNorm();
-				if(t > 0 && t < 1) // la proiezione cade dentro al lato
+				// proiezione sul lato CA
+				t = -(C-datum).dot(A-C)/(A-C).squaredNorm();
+				p_datum = C + t*(A-C);
+				if(0 <= t && t <= 1) // il punto cade nel lato AB
 				{
-					SVector<N> p_datum = C + t*(A - C);
-					double dist = (p_datum - datum).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
-					else if(opt_dist > dist)
+					double dist = (p_datum-datum).norm();
+					if((p_datum-opt_pos).norm()<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
+					else if(dist < opt_dist-DOUBLE_TOLERANCE)
 					{
-						opt_dist = dist;
+						elems_on_datum.clear();
+						elems_on_datum.insert(i);
 						opt_pos = p_datum;
-						elems_on_datum.clear();
-						elems_on_datum.insert(i);
-					} 
-				}
-				else if(t <=0)
-				{
-					double dist = (datum - C).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
-					else if(opt_dist > dist)
-					{
 						opt_dist = dist;
-						opt_pos = C;
-						elems_on_datum.clear();
-						elems_on_datum.insert(i);
 					}
 				}
-				else if(t >= 1)
+				else if(t < 0) // la proiezione coincide con il punto C
+				{
+					double dist = (datum - C).norm();
+					if((C-opt_pos).norm()<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
+					else if(dist < opt_dist-DOUBLE_TOLERANCE)
+					{
+						elems_on_datum.clear();
+						elems_on_datum.insert(i);
+						opt_pos = C;
+						opt_dist = dist;
+					}
+				}
+				else if(t > 1) // la proiezione coincide con il punto A
 				{
 					double dist = (datum - A).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
-					else if(opt_dist > dist)
+					if((A-opt_pos).norm()<DOUBLE_TOLERANCE) {elems_on_datum.insert(i);}
+					else if(dist < opt_dist-DOUBLE_TOLERANCE)
 					{
-						opt_dist = dist;
-						opt_pos = A;
 						elems_on_datum.clear();
 						elems_on_datum.insert(i);
+						opt_pos = A;
+						opt_dist = dist;
 					}
 				}
-			} // loop sugli elementi
-			// aggiornata la posizione del dato
-			for(unsigned i : elems_on_datum) {new_elem_to_data[i].insert(datum_id);}
-		} // else
-		data.row(datum_id) = opt_pos; // cambiata la posizione del dato
-	} // loop sui dati
-	return new_elem_to_data;
-}
-
-
-// Calcola la distanza della proiezione sugli elementi in input dalla posizione iniziale del dato
-SVector<3> project(const std::vector<Element<2, 3>> & elems, SVector<3> datum)
-{
-	double opt_dist(std::numeric_limits<double>::max());
-	bool inside_elem = false;
-	SVector<3> opt_pos; // la posizione ottimale del dato
-	for(const auto & elem : elems) // loop sugli elementi
-	{
-		SVector<3> p_datum = elem.hyperplane().project(datum); // viene proiettato il dato
-		if(elem.contains(p_datum)) // se l'elemento contiene il dato proiettato sul piano del triangolo
-		{
-			double dist = (datum - p_datum).norm(); // distanza 
-			if(dist < opt_dist)
-			{
-				opt_dist = dist;
-				opt_pos = p_datum;
-				inside_elem = true; // il dato cade in un elemento
-			}
+ 			} // fine loop su elementi
+ 			for(unsigned elem_idx : elems_on_datum) {new_elem_to_data[elem_idx].insert(datum_id);}
 		}
-	} // loop sugli elementi
-	if(inside_elem) {return opt_pos;}
-	else // il dato non può essere proiettato dentro gli elementi
-	{
-		opt_dist = std::numeric_limits<double>::max();
-		for(const auto & elem : elems) // loop sugli elementi
+	} // fine loop sui dati
+	return new_elem_to_data;
+} // project_info
+
+SVector<3> project(const std::vector<Element<2, 3>>&  elems, SVector<3> datum)
+{
+		SVector<3> opt_pos = datum; // posizione ottima del punto
+		double opt_dist = std::numeric_limits<double>::max(); // distanza della proiezione
+		bool done = false;
+		bool already_inside = false;
+		for(unsigned i = 0; i < elems.size(); ++i) // loop sugli elementi
 		{
-			// vengono presi i nodi dell'elemento
-			auto A = elem.coords()[0];
-			auto B = elem.coords()[1];
-			auto C = elem.coords()[2];
-			// lato AB
-			double t = -( datum - A ).dot( A - B )/( B - A ).squaredNorm();
-			if(t > 0 && t < 1) // la proiezione cade dentro al lato
+			const auto & elem = elems[i];
+			// si vede se il dato coincide con un vertice
+			for(SVector<3> vertex : elem.coords())
+				if((vertex-datum).norm()<DOUBLE_TOLERANCE) // il dato coincide col vertice
+				{
+					opt_pos = datum;
+					opt_dist = 0.0;
+					done = true;
+					already_inside = true;
+				}
+			// si vede se il dato giace su uno spigolo del triangolo
+			for(unsigned v1 = 0; v1 < 3; ++v1)
+				for(unsigned v2 = v1+1; v2 < 3; ++v2)
+				{
+					SVector<3> A = elem.coords()[v1];
+					SVector<3> B = elem.coords()[v2];
+					if( std::abs( (A-datum).norm()+(B-datum).norm()-(A-B).norm() ) < DOUBLE_TOLERANCE ) // il punto è dentro il lato AB
+					{
+						opt_pos = datum;
+						opt_dist = 0.0;
+						done = true;
+						already_inside = true;
+					}
+				}
+			if(elem.contains(datum)) // si verifica se il punto è interno al triangolo
 			{
-				SVector<3> p_datum = A + t*(B - A);
-				double dist = (p_datum - datum).norm();
-				if(opt_dist > dist) {
-					opt_dist = dist;
-					opt_pos = p_datum;}
+				opt_pos = datum;
+				opt_dist = 0.0;
+				done = true;
+				already_inside = true;
 			}
-			else if(t <=0)
+			if(!already_inside) // il dato deve essere proiettato
 			{
-				double dist = (datum - A).norm();
-				if(opt_dist > dist) {
+				unsigned opt_elem;
+				SVector<3> p_datum = elem.hyperplane().project(datum); // viene proiettato il dato
+				double dist = (datum - p_datum).norm();
+				if(elem.contains(p_datum) && dist<opt_dist)
+				{
 					opt_dist = dist;
-					opt_pos = A;}
+					opt_pos = p_datum;
+					done = true;
+				}
 			}
-			else if(t >= 1)
+		} // fine loop sugli elementi
+		if(!done) // il dato non poteva essere proiettato all'interno di un elemento
+		{
+			for(unsigned i = 0; i < elems.size(); ++i)
 			{
-				double dist = (datum - B).norm();
-				if(opt_dist > dist) {
-					opt_dist = dist;
-					opt_pos = B;}
-			}
-			// lato BC
-			t = -(datum - B).dot(B - C)/(C- B).squaredNorm();
-			if(t > 0 && t < 1) // la proiezione cade dentro al lato
-			{
-				SVector<3> p_datum = B + t*(C - B);
-				double dist = (p_datum - datum).norm();
-				if(opt_dist > dist) {
-					opt_dist = dist;
-					opt_pos = p_datum;}
-			}
-			else if(t <=0)
-			{
-				double dist = (datum - B).norm();
-				if(opt_dist > dist) {
-					opt_dist = dist;
-					opt_pos = B;}
-			}
-			else if(t >= 1)
-			{
-				double dist = (datum - C).norm();
-				if(opt_dist > dist) {
-					opt_dist = dist;
-					opt_pos = C;}
-			}
-			// lato CA
-			t = -(datum - C).dot(C - A)/(A - C).squaredNorm();
-			if(t > 0 && t < 1) // la proiezione cade dentro al lato
-			{
-				SVector<3> p_datum = C + t*(A - C);
-				double dist = (p_datum - datum).norm();
-				if(opt_dist > dist) {
-					opt_dist = dist;
-					opt_pos = p_datum;}
-			}
-			else if(t <=0)
-			{
-				double dist = (datum - C).norm();
-				if(opt_dist > dist) {
-					opt_dist = dist;
-					opt_pos = C;}
-			}
-			else if(t >= 1)
-			{
-				double dist = (datum - A).norm();
-				if(opt_dist > dist) {
-					opt_dist = dist;
-					opt_pos = C;}
-			}
-			
-			
-		} // loop sugli elementi
-	} // else 
+				const auto & elem = elems[i];
+				SVector<3> A = elem.coords()[0];
+				SVector<3> B = elem.coords()[1];
+				SVector<3> C = elem.coords()[2];
+				// proiezione sul lato AB
+				double t = -(A-datum).dot(B-A)/(B-A).squaredNorm();
+				SVector<3> p_datum = A + t*(B-A);
+				if(0 <= t && t <= 1) // il punto cade nel lato AB
+				{
+					double dist = (p_datum-datum).norm();
+					if(dist < opt_dist-DOUBLE_TOLERANCE)
+					{
+						opt_pos = p_datum;
+						opt_dist = dist;
+					}
+				}
+				else if(t < 0) // la proiezione coincide con il punto A
+				{
+					double dist = (datum - A).norm();
+					if(dist < opt_dist-DOUBLE_TOLERANCE)
+					{
+						opt_pos = A;
+						opt_dist = dist;
+					}
+				}
+				else if(t > 1) // la proiezione coincide con il punto B
+				{
+					double dist = (datum - B).norm();
+					if(dist < opt_dist-DOUBLE_TOLERANCE)
+					{
+						opt_pos = B;
+						opt_dist = dist;
+					}
+				}
+				// proiezione sul lato BC
+				t = -(B-datum).dot(C-B)/(C-B).squaredNorm();
+				p_datum = B + t*(C-B);
+				if(0 <= t && t <= 1) // il punto cade nel lato AB
+				{
+					double dist = (p_datum-datum).norm();
+					if(dist < opt_dist-DOUBLE_TOLERANCE)
+					{
+						opt_pos = p_datum;
+						opt_dist = dist;
+					}
+				}
+				if(t < 0) // la proiezione coincide con il punto B
+				{
+					double dist = (datum - B).norm();
+					if(dist < opt_dist-DOUBLE_TOLERANCE)
+					{						opt_pos = B;
+						opt_dist = dist;
+					}
+				}
+				else if(t > 1) // la proiezione coincide con il punto C
+				{
+					double dist = (datum - C).norm();
+					if(dist < opt_dist-DOUBLE_TOLERANCE)
+					{
+						opt_pos = C;
+						opt_dist = dist;
+					}
+				}
+				// proiezione sul lato CA
+				t = -(C-datum).dot(A-C)/(A-C).squaredNorm();
+				p_datum = C + t*(A-C);
+				if(0 <= t && t <= 1) // il punto cade nel lato AB
+				{
+					double dist = (p_datum-datum).norm();
+					if(dist < opt_dist-DOUBLE_TOLERANCE)
+					{
+						opt_pos = p_datum;
+						opt_dist = dist;
+					}
+				}
+				else if(t < 0) // la proiezione coincide con il punto C
+				{
+					double dist = (datum - C).norm();
+					if(dist < opt_dist-DOUBLE_TOLERANCE)
+					{
+						opt_pos = C;
+						opt_dist = dist;
+					}
+				}
+				else if(t > 1) // la proiezione coincide con il punto A
+				{
+					double dist = (datum - A).norm();
+					if(dist < opt_dist-DOUBLE_TOLERANCE)
+					{
+						opt_pos = A;
+						opt_dist = dist;
+					}
+				}
+ 			} // fine loop su elementi
+		}
 	return opt_pos;
-} // dist_projection
-/*
-// questa funzione torna per ogni elemento un set degli id dei dati che ora appartengono all'elemento
-std::vector<std::set<unsigned>> projection_info(const std::vector<Element<2, 3>> & elems, 
- 	const DMatrix<double> & data, const std::unordered_set<unsigned> & data_ids)
-{
-	std::vector<std::set<unsigned>> new_elem_to_data(elems.size());
-	constexpr int N = 3;
-	for(unsigned datum_id : data_ids) // loop sui dati
-	{
-		double opt_dist(std::numeric_limits<double>::max());
-		bool inside_elem = false;
-		SVector<N> datum = data.row(datum_id);
-		unsigned opt_pos; // la posizione ottimale del dato
-		for(unsigned i = 0; i < elems.size(); ++i) // loop sugli elementi
-		{
-			const auto & elem = elems[i];
-			SVector<N> p_datum = elem.hyperplane().project(datum); // viene proiettato il dato
-			if(elem.contains(p_datum)) // se l'elemento contiene il dato proiettato sul piano del triangolo
-			{
-				double dist = (datum - p_datum).norm(); // distanza 
-				if(dist < opt_dist)
-				{
-					opt_dist = dist;
-					inside_elem = true; // il dato cade in un elemento
-					opt_pos = i; 
-				}
-			}
-		} // loop sugli elementi
-		if(inside_elem) {new_elem_to_data[opt_pos].insert(datum_id);}
-		else // il dato non può essere proiettato dentro gli elementi
-		{
-			// contiene gli id degli elementi a cui il dato appartiene dopo la proiezione
-			std::set<unsigned> best_pos; 
-			opt_dist = std::numeric_limits<double>::max();
-			for(unsigned i = 0; i < elems.size(); ++i) // loop sugli elementi
-			{
-				const auto & elem = elems[i];
-				// vengono presi i nodi dell'elemento
-				auto A = elem.coords()[0];
-				auto B = elem.coords()[1];
-				auto C = elem.coords()[2];
-				// lato AB
-				double t = -( datum - A ).dot( A - B )/( B - A ).squaredNorm();
-				if(t > 0 && t < 1) // la proiezione cade dentro al lato
-				{
-					SVector<N> p_datum = A + t*(B - A);
-					double dist = (p_datum - datum).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
-					else if(opt_dist > dist)
-					{
-						opt_dist = dist;
-						best_pos.clear();
-						best_pos.insert(i);
-					} 
-				}
-				else if(t <=0)
-				{
-					double dist = (datum - A).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
-					else if(opt_dist > dist)
-					{
-						opt_dist = dist;
-						best_pos.clear();
-						best_pos.insert(i);
-					}
-				}
-				else if(t >= 1)
-				{
-					double dist = (datum - B).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
-					else if(opt_dist > dist)
-					{
-						opt_dist = dist;
-						best_pos.clear();
-						best_pos.insert(i);
-					}
-				}
-				// lato BC
-				t = -(datum - B).dot(B - C)/(C- B).squaredNorm();
-				if(t > 0 && t < 1) // la proiezione cade dentro al lato
-				{
-					SVector<N> p_datum = B + t*(C - B);
-					double dist = (p_datum - datum).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
-					else if(opt_dist > dist)
-					{
-						opt_dist = dist;
-						best_pos.clear();
-						best_pos.insert(i);
-					} 
-				}
-				else if(t <=0)
-				{
-					double dist = (datum - B).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
-					else if(opt_dist > dist)
-					{
-						opt_dist = dist;
-						best_pos.clear();
-						best_pos.insert(i);
-					}
-				}
-				else if(t >= 1)
-				{
-					double dist = (datum - C).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
-					else if(opt_dist > dist)
-					{
-						opt_dist = dist;
-						best_pos.clear();
-						best_pos.insert(i);
-					}
-				}
-				// lato CA
-				t = -(datum - C).dot(C - A)/(A - C).squaredNorm();
-				if(t > 0 && t < 1) // la proiezione cade dentro al lato
-				{
-					SVector<N> p_datum = C + t*(A - C);
-					double dist = (p_datum - datum).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
-					else if(opt_dist > dist)
-					{
-						opt_dist = dist;
-						best_pos.clear();
-						best_pos.insert(i);
-					} 
-				}
-				else if(t <=0)
-				{
-					double dist = (datum - C).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
-					else if(opt_dist > dist)
-					{
-						opt_dist = dist;
-						best_pos.clear();
-						best_pos.insert(i);
-					}
-				}
-				else if(t >= 1)
-				{
-					double dist = (datum - A).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
-					else if(opt_dist > dist)
-					{
-						opt_dist = dist;
-						best_pos.clear();
-						best_pos.insert(i);
-					}
-				}
-			} // loop sugli elementi
-			// aggiornata la posizione del dato
-			for(unsigned i : best_pos) {new_elem_to_data[i].insert(datum_id);}
-		} // else 
-	} // loop sui dati
-	return new_elem_to_data;
-}
-*/
-
-// questa funzione torna per ogni elemento un set degli id dei dati che ora appartengono all'elemento
-std::vector<std::set<unsigned>> projection_info(const std::vector<Element<2, 3>> & elems, 
- 	const DMatrix<double> & data, const std::unordered_set<unsigned> & data_ids)
-{
-	std::vector<std::set<unsigned>> new_elem_to_data(elems.size());
-	constexpr int N = 3;
-	for(unsigned datum_id : data_ids) // loop sui dati
-	{
-		double opt_dist(std::numeric_limits<double>::max());
-		bool inside_elem = false;
-		SVector<N> datum = data.row(datum_id);
-		// il set degli elementi a cui il dato appartiene
-		std::set<unsigned> elems_on_datum;
-		unsigned opt_pos; // la posizione ottimale del dato (indice dell'elemento)
-		for(unsigned i = 0; i < elems.size(); ++i) // loop sugli elementi
-		{
-			const auto & elem = elems[i];
-			SVector<N> p_datum = elem.hyperplane().project(datum); // viene proiettato il dato
-			if(elem.contains(p_datum)) // se l'elemento contiene il dato proiettato sul piano del triangolo
-			{
-				inside_elem = true;
-				double dist = (datum - p_datum).norm(); // distanza
-				// il dato potrebbe essere sul bordo:
-				if( dist < DOUBLE_TOLERANCE )
-				{
-					opt_dist = 0.0;
-					elems_on_datum.insert(i);
-				}
-				else if(dist < opt_dist)
-				{
-					opt_dist = dist;
-					elems_on_datum.clear();
-					elems_on_datum.insert(i); 
-				}
-			}
-		} // loop sugli elementi
-		if(inside_elem) {
-			for(unsigned elem_idx : elems_on_datum) {new_elem_to_data[elem_idx].insert(datum_id);}
-		}
-		else // il dato non può essere proiettato dentro gli elementi
-		{
-			// contiene gli id degli elementi a cui il dato appartiene dopo la proiezione
-			std::set<unsigned> best_pos; 
-			opt_dist = std::numeric_limits<double>::max();
-			for(unsigned i = 0; i < elems.size(); ++i) // loop sugli elementi
-			{
-				const auto & elem = elems[i];
-				// vengono presi i nodi dell'elemento
-				auto A = elem.coords()[0];
-				auto B = elem.coords()[1];
-				auto C = elem.coords()[2];
-				// lato AB
-				double t = -( datum - A ).dot( A - B )/( B - A ).squaredNorm();
-				if(t > 0 && t < 1) // la proiezione cade dentro al lato
-				{
-					SVector<N> p_datum = A + t*(B - A);
-					double dist = (p_datum - datum).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
-					else if(opt_dist > dist)
-					{
-						opt_dist = dist;
-						best_pos.clear();
-						best_pos.insert(i);
-					} 
-				}
-				else if(t <=0)
-				{
-					double dist = (datum - A).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
-					else if(opt_dist > dist)
-					{
-						opt_dist = dist;
-						best_pos.clear();
-						best_pos.insert(i);
-					}
-				}
-				else if(t >= 1)
-				{
-					double dist = (datum - B).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
-					else if(opt_dist > dist)
-					{
-						opt_dist = dist;
-						best_pos.clear();
-						best_pos.insert(i);
-					}
-				}
-				// lato BC
-				t = -(datum - B).dot(B - C)/(C- B).squaredNorm();
-				if(t > 0 && t < 1) // la proiezione cade dentro al lato
-				{
-					SVector<N> p_datum = B + t*(C - B);
-					double dist = (p_datum - datum).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
-					else if(opt_dist > dist)
-					{
-						opt_dist = dist;
-						best_pos.clear();
-						best_pos.insert(i);
-					} 
-				}
-				else if(t <=0)
-				{
-					double dist = (datum - B).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
-					else if(opt_dist > dist)
-					{
-						opt_dist = dist;
-						best_pos.clear();
-						best_pos.insert(i);
-					}
-				}
-				else if(t >= 1)
-				{
-					double dist = (datum - C).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
-					else if(opt_dist > dist)
-					{
-						opt_dist = dist;
-						best_pos.clear();
-						best_pos.insert(i);
-					}
-				}
-				// lato CA
-				t = -(datum - C).dot(C - A)/(A - C).squaredNorm();
-				if(t > 0 && t < 1) // la proiezione cade dentro al lato
-				{
-					SVector<N> p_datum = C + t*(A - C);
-					double dist = (p_datum - datum).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
-					else if(opt_dist > dist)
-					{
-						opt_dist = dist;
-						best_pos.clear();
-						best_pos.insert(i);
-					} 
-				}
-				else if(t <=0)
-				{
-					double dist = (datum - C).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
-					else if(opt_dist > dist)
-					{
-						opt_dist = dist;
-						best_pos.clear();
-						best_pos.insert(i);
-					}
-				}
-				else if(t >= 1)
-				{
-					double dist = (datum - A).norm();
-					if(std::abs(opt_dist-dist)<DOUBLE_TOLERANCE) {best_pos.insert(i);}
-					else if(opt_dist > dist)
-					{
-						opt_dist = dist;
-						best_pos.clear();
-						best_pos.insert(i);
-					}
-				}
-			} // loop sugli elementi
-			// aggiornata la posizione del dato
-			for(unsigned i : best_pos) {new_elem_to_data[i].insert(datum_id);}
-		} // else 
-	} // loop sui dati
-	return new_elem_to_data;
-}
+} // project
 
 } // core
 } // fdapde
 
-#endif // __PROJECTION_H__
+
+#endif

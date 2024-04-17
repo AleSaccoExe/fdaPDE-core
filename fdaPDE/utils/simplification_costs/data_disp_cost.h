@@ -12,8 +12,14 @@ struct DataDispCost{
 	double operator()(const std::vector<Element<M, N>> & elems_to_modify, 
 					  const std::vector<Element<M, N>> & elems_to_delete,
 					  const std::vector<Element<M, N>> & elems_modified, const SVector<3> & v,
-					  const std::unordered_set<unsigned> & data_ids) const
-	{ return get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids)/max_; }
+					  const std::unordered_set<unsigned> & data_ids)
+	{ 	double cost = get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids);
+		// std::cout<<"cost disp not normalized: "<<cost<<"\n";
+		if(cost < min_) {min_ = cost;}
+		double ret = cost/max_;
+		// std::cout<<"max disp: "<<max_<<"\n";
+		return ret;
+		return get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids)/max_; }
 
 	void update_min(const std::vector<Element<M, N>> & elems_to_modify, 
 					  const std::vector<Element<M, N>> & elems_to_delete,
@@ -123,6 +129,14 @@ struct DataDispCost{
 		return Nt;
 	}
 
+	bool check_update()
+	{
+		double current_min = min_;
+		min_ = std::numeric_limits<double>::max();
+		return (current_min > threshold_*max_);
+	}
+
+	void set_threshold(double new_threshold) {threshold_ = new_threshold;}
 
 
 	// membri
@@ -132,6 +146,7 @@ struct DataDispCost{
 	Simplification<M, N> * p_simp_;
 	std::vector<double> qoi_;
 	unsigned num_elems_;
+	double threshold_ = 1.3;
 };
 
 } // core

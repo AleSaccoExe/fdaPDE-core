@@ -16,6 +16,9 @@ struct DataDistCost{
 					  const std::vector<Element<2, 3>> & elems_modified, const SVector<3> & v, 
 					  const std::unordered_set<unsigned> & data_ids ) const
 	{
+		double ret = get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids)/max;
+		// std::cout<<"costo dist: "<<ret<<"\n";
+		return ret;
 		return get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids)/max;
 	}
 
@@ -58,6 +61,9 @@ struct DataDistCost{
 
 	void update(const std::vector<Element<2, 3>> & elems_to_delete,
 				const std::vector<Element<2, 3>> & elems_modified) {}
+
+	bool check_update() {return false;}
+	void set_threshold(double new_threshold) {}
 
 	// Contiene le posizioni iniziali di tutti i dati
 	DMatrix<double> data_;
