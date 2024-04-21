@@ -200,13 +200,13 @@ bool Element<2, 3>::intersection(const Element<2, 3>& other_el) const
 {
     // Compute the normal to the triangle and the RHS 
     // of the equation of the plane the triangle lies in
-    SVector<3> A = coords_[0];
-    SVector<3> B = coords_[1];
-    SVector<3> C = coords_[2];
+    const SVector<3>& A = coords_[0];
+    const SVector<3>& B = coords_[1];
+    const SVector<3>& C = coords_[2];
 
-    SVector<3> D = other_el.coords_[0];
-    SVector<3> E = other_el.coords_[1];
-    SVector<3> F = other_el.coords_[2];
+    const SVector<3>& D = other_el.coords_[0];
+    const SVector<3>& E = other_el.coords_[1];
+    const SVector<3>& F = other_el.coords_[2];
     
     SVector<3> N = (B - A).cross(C - B);
     N.normalize();
@@ -291,6 +291,12 @@ template<>
 HyperPlane<2, 3> Element<2, 3>::hyperplane() const
 {
     return HyperPlane<2, 3>(coords_[0], coords_[1], coords_[2]);
+}
+
+template<>
+HyperPlane<2, 2> Element<2, 2>::hyperplane() const
+{
+    return HyperPlane<2, 2>(coords_[0], coords_[1], coords_[2]);
 }
 
 // ================>

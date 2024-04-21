@@ -435,7 +435,7 @@ std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connection
 				{
 					std::set<int> tmp_facet = {facet[i]};
 					tmp_facet.insert(conn_nodes[j]);
-					tmp_facet.insert(conn_nodes[i]);
+					tmp_facet.insert(conn_nodes[k]);
 					if(facets.find(tmp_facet)!=facets.end()) // se i tre nodi in tmp_facet formano davvero una faccia
 					{
 						unsigned old_id = facets.at(tmp_facet);
@@ -502,6 +502,7 @@ std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connection
 		node_to_nodes[collapsing_node].erase(facet[i]);
 	return facets_info;
 }
+
 
 std::set<unsigned> Connections::facets_to_update(unsigned node_id) const
 {

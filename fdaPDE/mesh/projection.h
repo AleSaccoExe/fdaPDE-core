@@ -9,8 +9,28 @@
 
 namespace fdapde{
 namespace core{
+// ritorna la mappa elemento -> dati
+// implementazione valida per mesh in cui la posizione dei dati non deve cambiare (2D, 3D)
+template<int M, int N>
+std::vector<std::unordered_set<unsigned>> project(const std::vector<Element<M, N>>&  elems, DMatrix<double> & data, 
+										const std::unordered_set<unsigned>& data_ids)
+{
+	std::vector<std::unordered_set<unsigned>> new_elem_to_data(elems.size());
+	for(unsigned datum_id : data_ids)
+	{
+		const SVector<N> datum = data.row(datum_id);
+		for(unsigned i = 0; i < elems.size(); ++i)
+		{
+			if(elems[i].contains(datum)) { new_elem_to_data[i].insert(datum_id); } 
+		}
+	}
+	return new_elem_to_data;
+}
+
 
 // ritorna la mappa elemento -> dati
+// implementazione valida per superfici (2.5D)
+template<>
 std::vector<std::unordered_set<unsigned>> project(const std::vector<Element<2, 3>>&  elems, DMatrix<double> & data, 
 										const std::unordered_set<unsigned>& data_ids)
 { 
@@ -209,7 +229,25 @@ std::vector<std::unordered_set<unsigned>> project(const std::vector<Element<2, 3
 	return new_elem_to_data;
 } // project
 
+// funzione che viene utilizzata dal costo data_disp_cost
+// implementazione valida per mesh che non devono proiettare i dati (2D, 3D)
+template<int M, int N>
+std::vector<std::set<unsigned>> projection_info(const std::vector<Element<M, N>>&  elems, const DMatrix<double> & data, 
+										const std::unordered_set<unsigned>& data_ids)
+{
+	std::vector<std::set<unsigned>> new_elem_to_data(elems.size());
+	for(unsigned datum_id : data_ids)
+	{
+		const SVector<N> datum = data.row(datum_id);
+		for(unsigned i = 0; i < elems.size(); ++i)
+		{
+			if(elems[i].contains(datum)) { new_elem_to_data[i].insert(datum_id); } 
+		}
+	}
+	return new_elem_to_data;
+}										
 
+template<>
 std::vector<std::set<unsigned>> projection_info(const std::vector<Element<2, 3>>&  elems, const DMatrix<double> & data, 
 										const std::unordered_set<unsigned>& data_ids)
 {
@@ -560,6 +598,7 @@ SVector<3> project(const std::vector<Element<2, 3>>&  elems, SVector<3> datum)
 		}
 	return opt_pos;
 } // project
+
 
 } // core
 } // fdapde

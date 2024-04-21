@@ -36,8 +36,8 @@ using namespace fdapde::core;
 using namespace std;
 
 
-
-TEST(simplification_test, only_geo)
+/*
+TEST(simplification_test, surface)
 {
     using Clock = std::chrono::high_resolution_clock;
     using std::chrono::duration;
@@ -49,7 +49,7 @@ TEST(simplification_test, only_geo)
     DataDispCost<2, 3> data_disp_cost;
     
     // MeshLoader<Mesh<2, 3>> meshloader("surface");
-    /*std::ifstream mesh_file("../../../meshes/toro.inp");
+    std::ifstream mesh_file("../../../meshes/pawn.inp");
     int n_nodes, n_elements;
     std::string line;
     getline(mesh_file, line);
@@ -83,7 +83,7 @@ TEST(simplification_test, only_geo)
         elements(i, 1) = std::stoi(node_id2)-1;
         elements(i, 2) = std::stoi(node_id3)-1;
     }*/
-    
+    /*
     std::ifstream orig_elems_file("../../../meshes/simulation2_triangles.txt");
     std::ifstream orig_nodes_file("../../../meshes/simulation2_vertices.txt");
     std::ifstream orig_data_file("../../../meshes/simulation2_2500data.txt");
@@ -131,26 +131,25 @@ TEST(simplification_test, only_geo)
         elements(i, 0) = std::stoi(node_id1)-1;
         elements(i, 1) = std::stoi(node_id2)-1;
         elements(i, 2) = std::stoi(node_id3)-1;
-    }
-    
+    }*/
+    /*
     // Simplification simp(meshloader.mesh);
-    MeshLoader<Mesh<2, 2>> meshloader("unit_square_128");
     DMatrix<int> boundary(n_nodes, 1);
     boundary.setZero();
     Mesh<2, 3> mesh(nodes, elements, boundary);
     std::cout<<"mesh creata\n";
 
-    Simplification simp(mesh, data);
+    Simplification simp(mesh);
     std::cout<<"simp inizializzata\n";
     // std::cout<<"nodi mesh: "<<meshloader.mesh.n_nodes()<<"\nInserire il numero di nodi\n";
     std::cout<<"nodi mesh: "<<n_nodes<<", numero di elementi: "<<n_elements<<"\nInserire il numero di nodi\n";
     unsigned target_nodes;
     std::cin>>target_nodes;
-    std::array<double, 2> w = {0.5, 0.0};
+    std::array<double, 1> w = {0.5};
     // std::array<double, 3> w = {1./3., 1./3., 1./3.};
     auto start = Clock::now();
     // simp.simplify(target_nodes, w, geom_cost, data_disp_cost, data_dist_cost);
-    simp.simplify(target_nodes, w, geom_cost, data_disp_cost);
+    simp.simplify(target_nodes, w, geom_cost);
     auto end = Clock::now();
     auto elapsed = duration_cast<duration<double>>(end - start);
     std::cout<<"simplificazione finita. Tempo impiegato: "<<elapsed.count()<<"\n";
@@ -163,7 +162,7 @@ TEST(simplification_test, only_geo)
     file_data<<simp.get_data();
     file_nodes.close();
     file_data.close();
-    file_elems.close();
+    file_elems.close();*/
     /*
     Connections conns(mesh);
     unsigned facet_id = 150;
@@ -194,18 +193,18 @@ TEST(simplification_test, only_geo)
     */
 
 
-
+    /*
     std::cout<<"scrivere il nome del file di qoi e dist\n";
     std::string nome_file;
     std::cin>>nome_file;
 
     std::ofstream file_dist("../../../meshes/dist_"+nome_file+".txt");
     // viene stampata la distanza dei dati
-    // for (int i = 0; i < mesh.n_nodes(); ++i) {
-    for (int i = 0; i < data.rows(); ++i) {
+    for (int i = 0; i < mesh.n_nodes(); ++i) {
+    // for (int i = 0; i < data.rows(); ++i) {
         SVector<3> new_pos = simp.get_data().row(i);
-        // SVector<3> orig_pos = mesh.node(i);
-        SVector<3> orig_pos = data.row(i);
+        SVector<3> orig_pos = mesh.node(i);
+        // SVector<3> orig_pos = data.row(i);
         // Scriviamo il numero nel file di testo
         file_dist << (new_pos - orig_pos).norm() << std::endl;
     }
@@ -247,5 +246,39 @@ TEST(simplification_test, only_geo)
     }
     if(do_intersect)
         std::cout<<"trovata intersezione\n";
+}*/
+
+TEST(simplification_test, simplification_2D)
+{
+    using Clock = std::chrono::high_resolution_clock;
+    using std::chrono::duration;
+    using std::chrono::duration_cast;
+
+    DataDispCost<2, 2> data_disp_cost;
+    MeshLoader<Mesh2D> CShaped("c_shaped");
     
+    Simplification simp(CShaped.mesh);
+    std::cout<<"simp inizializzata\n";
+    unsigned n_nodes = CShaped.mesh.n_nodes();
+    unsigned n_elements = CShaped.mesh.n_elements();
+    std::cout<<"nodi mesh: "<<n_nodes<<", numero di elementi: "<<n_elements<<"\nInserire il numero di nodi\n";
+    unsigned target_nodes;
+    std::cin>>target_nodes;
+    std::array<double, 1> w = {1.0};
+    auto start = Clock::now();
+    simp.simplify(target_nodes, w, data_disp_cost);
+    auto end = Clock::now();
+    auto elapsed = duration_cast<duration<double>>(end - start);
+    std::cout<<"simplificazione finita. Tempo impiegato: "<<elapsed.count()<<"\n";
+    auto mesh_simp = simp.build_mesh();
+    std::ofstream file_nodes("../../../meshes/nodes_simp.txt");
+    std::ofstream file_elems("../../../meshes/elems_simp.txt");
+    std::ofstream file_data("../../../meshes/data_simp.txt");
+    file_nodes<<mesh_simp.nodes();
+    file_elems<<mesh_simp.elements();
+    file_data<<simp.get_data();
+    file_nodes.close();
+    file_data.close();
+    file_elems.close();
+
 }

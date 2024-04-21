@@ -1,19 +1,3 @@
-// This file is part of fdaPDE, a C++ library for physics-informed
-// spatial and functional data analysis.
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 #ifndef __HYPERPLANE_H__
 #define __HYPERPLANE_H__
 
@@ -25,6 +9,7 @@
 namespace fdapde {
 namespace core {
 
+
 // orthogonal projection of vector v over u
 template <int N> constexpr SVector<N> orthogonal_project(const SVector<N>& v, const SVector<N>& u) {
     return (v.dot(u) / u.squaredNorm() * u.array()).matrix();
@@ -32,7 +17,7 @@ template <int N> constexpr SVector<N> orthogonal_project(const SVector<N>& v, co
 
 // a template class representing an M-dimensional plane embedded in an N-dimensional space
 template <int M, int N> class HyperPlane {
-    static_assert(M < N);
+    static_assert(M <= N);
    private:
     // let x_1, x_2, \ldots, x_{N+1} be a set of N+1 points through which the plane passes
     SMatrix<N, M> basis_;   // matrix [x2 - x1, x3 - x1, \ldots, x_{N+1} - x1] of vectors generating the plane
@@ -56,16 +41,22 @@ template <int M, int N> class HyperPlane {
         fdapde_static_assert(M == 2, THIS_METHOD_IS_ONLY_FOR_PLANES);
         basis_.col(0) = (x2 - x1).normalized();
         basis_.col(1) = ((x3 - x1) - orthogonal_project(SVector<N>(x3 - x1), SVector<N>(basis_.col(0)))).normalized();
-	normal_ = ((x2 - x1).cross(x3 - x1)).normalized();
-	offset_ = -x1.dot(normal_);
+    if constexpr(N!=2)
+	   normal_ = ((x2 - x1).cross(x3 - x1)).normalized();
+    else
+        /*normal_ = basis_.fullPivLu().kernel();
+	    offset_ = -x1.dot(normal_);*/
+        static_assert(N==2);
+        normal_[0] = 0.0;
+        SVector<N> v = x2-x1;
+        SVector<N> w = x3-x1;
+        normal_[1] = v[0]*w[1]-v[1]*w[0];
     }
     // constructors from matrix coordinates
-    
-    HyperPlane(const SMatrix<N, 2>& coords) /*requires (M == 1)*/ : HyperPlane(coords.col(0), coords.col(1)) { }
-    HyperPlane(const SMatrix<N, 3>& coords) /*requires (M == 2)*/ :
+    /*HyperPlane(const SMatrix<N, 2>& coords) requires (M == 1) : HyperPlane(coords.col(0), coords.col(1)) { }
+    HyperPlane(const SMatrix<N, 3>& coords) requires (M == 2) :
       HyperPlane(coords.col(0), coords.col(1), coords.col(2)) { }
     // general hyperplane constructor
-    /*
     HyperPlane(const SMatrix<N, M + 1>& coords) requires(M > 2) : p_(coords.col(0)) {
         basis_ = coords.rightCols(M).colwise() - coords.col(0);
 	// basis orthonormalization via modified Gram-Schmidt method
@@ -78,8 +69,7 @@ template <int M, int N> class HyperPlane {
         }
         normal_ = basis_.fullPivLu().kernel();   // normal to the hyperplane is any element in the null space of basis_
         offset_ = -coords.col(0).dot(normal_);
-    }
-    */
+    }*/
     // projection
     SVector<M> project_onto(const SVector<N>& x) {
         if constexpr (M == N) {
@@ -91,7 +81,13 @@ template <int M, int N> class HyperPlane {
             return proj;
         }
     }
-    SVector<N> project(const SVector<N>& x) const { return basis_ * basis_.transpose() * (x - p_) + p_; }
+    SVector<N> project(const SVector<N>& x) const {
+        if constexpr (M == N) {
+            return x;
+        } else {
+            return basis_ * basis_.transpose() * (x - p_) + p_;
+        }
+    }
     // euclidean distance of a point from the space
     double distance(const SVector<N>& x) { return (x - project(x)).norm(); }
     SVector<N> operator()(const SVector<M>& coeffs) const {

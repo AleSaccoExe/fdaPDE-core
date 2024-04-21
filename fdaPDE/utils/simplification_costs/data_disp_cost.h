@@ -11,7 +11,7 @@ template<int M, int N>
 struct DataDispCost{
 	double operator()(const std::vector<Element<M, N>> & elems_to_modify, 
 					  const std::vector<Element<M, N>> & elems_to_delete,
-					  const std::vector<Element<M, N>> & elems_modified, const SVector<3> & v,
+					  const std::vector<Element<M, N>> & elems_modified, const SVector<N> & v,
 					  const std::unordered_set<unsigned> & data_ids)
 	{ 	double cost = get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids);
 		// std::cout<<"cost disp not normalized: "<<cost<<"\n";
@@ -23,7 +23,7 @@ struct DataDispCost{
 
 	void update_min(const std::vector<Element<M, N>> & elems_to_modify, 
 					  const std::vector<Element<M, N>> & elems_to_delete,
-					  const std::vector<Element<M, N>> & elems_modified, const SVector<3> & v,
+					  const std::vector<Element<M, N>> & elems_modified, const SVector<N> & v,
 					  const std::unordered_set<unsigned> & data_ids)
 	{
 		double cost = get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids);
@@ -37,7 +37,7 @@ struct DataDispCost{
 
 	double get_cost(const std::vector<Element<M, N>> & elems_to_modify, 
 					  const std::vector<Element<M, N>> & elems_to_delete,
-					  const std::vector<Element<M, N>> & elems_modified, const SVector<3> & v,
+					  const std::vector<Element<M, N>> & elems_modified, const SVector<N> & v,
 					  const std::unordered_set<unsigned> & data_ids) const
 	{
 		double disp_cost = 0.0;
