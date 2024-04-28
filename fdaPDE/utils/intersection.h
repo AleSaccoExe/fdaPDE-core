@@ -440,8 +440,8 @@ Point2Tri inTri3d(const Eigen::Vector3d & P,
     bool boxes_intersection(const std::pair<SVector<N>, SVector<N>> & b1, const std::pair<SVector<N>, SVector<N>> & b2)
     {
         for (int i = 0; i < N; ++i) {
-            if (b1.second[i] < b2.first[i] || 
-                b2.second[i] < b1.first[i]) {
+            if (b1.second[i] <= b2.first[i] || 
+                b2.second[i] <= b1.first[i]) {
                 return false;
             }
         }

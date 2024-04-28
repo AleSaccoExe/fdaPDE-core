@@ -299,6 +299,15 @@ HyperPlane<2, 2> Element<2, 2>::hyperplane() const
     return HyperPlane<2, 2>(coords_[0], coords_[1], coords_[2]);
 }
 
+template<>
+HyperPlane<3, 3> Element<3, 3>::hyperplane() const
+{
+    SMatrix<3, 4> coords;
+    for(int i = 0; i < 4; ++i)
+        coords.col(i) = coords_[i];
+    return HyperPlane<3, 3>(coords);
+}
+
 // ================>
 // FINE AGGIUNTE MIE
 

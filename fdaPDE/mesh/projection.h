@@ -18,11 +18,14 @@ std::vector<std::unordered_set<unsigned>> project(const std::vector<Element<M, N
 	std::vector<std::unordered_set<unsigned>> new_elem_to_data(elems.size());
 	for(unsigned datum_id : data_ids)
 	{
+		bool ok = false;
 		const SVector<N> datum = data.row(datum_id);
 		for(unsigned i = 0; i < elems.size(); ++i)
 		{
-			if(elems[i].contains(datum)) { new_elem_to_data[i].insert(datum_id); } 
+			if(elems[i].contains(datum)) { new_elem_to_data[i].insert(datum_id); ok = true;} 
 		}
+		if(!ok)
+			std::cout<<"non va bene!\n";
 	}
 	return new_elem_to_data;
 }

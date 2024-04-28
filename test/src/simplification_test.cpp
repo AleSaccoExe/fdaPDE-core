@@ -36,7 +36,7 @@ using namespace fdapde::core;
 using namespace std;
 
 
-/*
+
 TEST(simplification_test, surface)
 {
     using Clock = std::chrono::high_resolution_clock;
@@ -82,7 +82,7 @@ TEST(simplification_test, surface)
         elements(i, 0) = std::stoi(node_id1)-1;
         elements(i, 1) = std::stoi(node_id2)-1;
         elements(i, 2) = std::stoi(node_id3)-1;
-    }*/
+    }
     /*
     std::ifstream orig_elems_file("../../../meshes/simulation2_triangles.txt");
     std::ifstream orig_nodes_file("../../../meshes/simulation2_vertices.txt");
@@ -132,7 +132,7 @@ TEST(simplification_test, surface)
         elements(i, 1) = std::stoi(node_id2)-1;
         elements(i, 2) = std::stoi(node_id3)-1;
     }*/
-    /*
+    
     // Simplification simp(meshloader.mesh);
     DMatrix<int> boundary(n_nodes, 1);
     boundary.setZero();
@@ -162,7 +162,7 @@ TEST(simplification_test, surface)
     file_data<<simp.get_data();
     file_nodes.close();
     file_data.close();
-    file_elems.close();*/
+    file_elems.close();
     /*
     Connections conns(mesh);
     unsigned facet_id = 150;
@@ -193,7 +193,7 @@ TEST(simplification_test, surface)
     */
 
 
-    /*
+    
     std::cout<<"scrivere il nome del file di qoi e dist\n";
     std::string nome_file;
     std::cin>>nome_file;
@@ -246,8 +246,9 @@ TEST(simplification_test, surface)
     }
     if(do_intersect)
         std::cout<<"trovata intersezione\n";
-}*/
+}
 
+/*
 TEST(simplification_test, simplification_2D)
 {
     using Clock = std::chrono::high_resolution_clock;
@@ -255,12 +256,48 @@ TEST(simplification_test, simplification_2D)
     using std::chrono::duration_cast;
 
     DataDispCost<2, 2> data_disp_cost;
-    MeshLoader<Mesh2D> CShaped("c_shaped");
+    SharpElemsCost<2, 2> sharp_elems_cost;
+    MeshLoader<Mesh2D> CShaped("unit_square_64");
     
     Simplification simp(CShaped.mesh);
     std::cout<<"simp inizializzata\n";
     unsigned n_nodes = CShaped.mesh.n_nodes();
     unsigned n_elements = CShaped.mesh.n_elements();
+    std::cout<<"nodi mesh: "<<n_nodes<<", numero di elementi: "<<n_elements<<"\nInserire il numero di nodi\n";
+    unsigned target_nodes;
+    std::cin>>target_nodes;
+    std::array<double, 2> w = {0.9, 0.1};
+    auto start = Clock::now();
+    simp.simplify(target_nodes, w, data_disp_cost, sharp_elems_cost);
+    auto end = Clock::now();
+    auto elapsed = duration_cast<duration<double>>(end - start);
+    std::cout<<"simplificazione finita. Tempo impiegato: "<<elapsed.count()<<"\n";
+    auto mesh_simp = simp.build_mesh();
+    std::ofstream file_nodes("../../../meshes/nodes_simp.txt");
+    std::ofstream file_elems("../../../meshes/elems_simp.txt");
+    std::ofstream file_data("../../../meshes/data_simp.txt");
+    file_nodes<<mesh_simp.nodes();
+    file_elems<<mesh_simp.elements();
+    file_data<<simp.get_data();
+    file_nodes.close();
+    file_data.close();
+    file_elems.close();
+}*/
+
+/*
+TEST(simplification_test, simplification_3D)
+{
+    using Clock = std::chrono::high_resolution_clock;
+    using std::chrono::duration;
+    using std::chrono::duration_cast;
+
+    DataDispCost<3, 3> data_disp_cost;
+    MeshLoader<Mesh3D> meshloader("unit_sphere");
+    
+    Simplification simp(meshloader.mesh);
+    std::cout<<"simp inizializzata\n";
+    unsigned n_nodes = meshloader.mesh.n_nodes();
+    unsigned n_elements = meshloader.mesh.n_elements();
     std::cout<<"nodi mesh: "<<n_nodes<<", numero di elementi: "<<n_elements<<"\nInserire il numero di nodi\n";
     unsigned target_nodes;
     std::cin>>target_nodes;
@@ -281,4 +318,34 @@ TEST(simplification_test, simplification_2D)
     file_data.close();
     file_elems.close();
 
+
+
+    const auto & mesh = meshloader.mesh;
+    Connections conns(mesh);
+    unsigned facet_id = 200;
+    std::array<int, 3> facet = mesh.facet(facet_id).node_ids();
+    auto elems_to_modify_ids = conns.elems_modified_in_collapse(facet);
+    auto elems_modified = simp.modify_elements(elems_to_modify_ids, facet, mesh.node(facet[0]) );
+    std::vector<Element<3, 3>> elems_to_modify;
+    for(unsigned elem_id : elems_to_modify_ids) {elems_to_modify.push_back(mesh.element(elem_id));}
+    std::ofstream file_elems_before("../../../meshes/elems_before.txt");
+    std::ofstream file_elems_after("../../../meshes/elems_after.txt");
+    for(unsigned i = 0; i < elems_to_modify.size(); ++i)
+    {
+        auto coords_before = elems_to_modify[i].coords();
+        auto coords_after = elems_modified[i].coords();
+        for(unsigned j = 0; j < 4; ++j)
+        {
+            for(unsigned k = 0; k < 3; ++k){
+                file_elems_after<<coords_after[j][k]<<" ";
+                file_elems_before<<coords_before[j][k]<<" ";
+            }
+            file_elems_before<<std::endl;
+            file_elems_after<<std::endl;
+        }
+
+    }
+    file_elems_before.close();
+    file_elems_after.close();
 }
+*/

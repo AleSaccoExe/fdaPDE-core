@@ -118,7 +118,8 @@ struct SharpElemsCost{
 
 	void update(const std::vector<Element<M, N>> & elems_to_delete,
 				const std::vector<Element<M, N>> & elems_modified) {}
-
+	void set_threshold(double new_threshold) {}
+	bool check_update() {return false;}
 	double max_ = 0.0;
 	double min_ = std::numeric_limits<double>::max();
 

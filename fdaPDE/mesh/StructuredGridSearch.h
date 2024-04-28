@@ -146,7 +146,7 @@ StructuredGridSearch<M, N>::StructuredGridSearch(const Mesh<M, N> & mesh)
 	}
 	// cell_size is updated using the computed number of cells
 	std::cout<<"cell_size: "<<cell_size[0]<<", "<<cell_size[1]<<", "<<cell_size[2]<<"\n";
-	// update_cell_size();
+	update_cell_size();
 
 	// compute index for all elements
 	for(unsigned id_el = 0; id_el < n_elements; ++id_el) 
@@ -361,9 +361,10 @@ void StructuredGridSearch<M, N>::refresh(const std::vector<Element<M, N>> & elem
 	for(unsigned k = 0; k < N; ++k) { 
 		if(( global_NE[k] - global_SW[k] )<cell_size[k])
 			std::cout<<"CELL_SIZE > GLOBAL_NE - GLOBAL_sw ???\n";
-			n_cells[k] = ( global_NE[k] - global_SW[k] )/cell_size[k]; }
+		if(n_cells[k]==0) {n_cells[k]=1;}
+		n_cells[k] = ( global_NE[k] - global_SW[k] )/cell_size[k]; }
 	// cell_size is updated using the computed number of cells
-	// update_cell_size();
+	update_cell_size();
 	std::cout<<"num_cells: "<<n_cells[0]<<", "<<n_cells[1]<<", "<<n_cells[2]<<"\n";
 	// idx_map has to be rebuilt from scratch
 	idx_map.clear();

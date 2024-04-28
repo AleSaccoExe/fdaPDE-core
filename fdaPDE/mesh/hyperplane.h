@@ -43,7 +43,7 @@ template <int M, int N> class HyperPlane {
         basis_.col(1) = ((x3 - x1) - orthogonal_project(SVector<N>(x3 - x1), SVector<N>(basis_.col(0)))).normalized();
     if constexpr(N!=2)
 	   normal_ = ((x2 - x1).cross(x3 - x1)).normalized();
-    else
+    else{
         /*normal_ = basis_.fullPivLu().kernel();
 	    offset_ = -x1.dot(normal_);*/
         static_assert(N==2);
@@ -51,6 +51,26 @@ template <int M, int N> class HyperPlane {
         SVector<N> v = x2-x1;
         SVector<N> w = x3-x1;
         normal_[1] = v[0]*w[1]-v[1]*w[0];
+        }
+    }
+    HyperPlane(const SMatrix<N, M + 1>& coords) : p_(coords.col(0)) {
+        basis_ = coords.rightCols(M).colwise() - coords.col(0);
+    // basis orthonormalization via modified Gram-Schmidt method
+        basis_.col(0) /= basis_.col(0).norm();
+        for (int i = 1; i < M; ++i) {
+            for (int j = 0; j < i; ++j) {
+                basis_.col(i) = basis_.col(i) - orthogonal_project<N>(basis_.col(i), basis_.col(j));
+            }
+            basis_.col(i) /= basis_.col(i).norm();
+        }
+        normal_ = basis_.fullPivLu().kernel();   // normal to the hyperplane is any element in the null space of basis_
+        SVector<N> u = coords.col(1) - coords.col(0);
+        SVector<N> v = coords.col(2) - coords.col(0);
+        SVector<N> w = coords.col(3) - coords.col(0);
+        SVector<N> l1 = u.cross(v);
+        SVector<N> l2 = v.cross(w);
+        normal_ = l1.cross(l2);
+        offset_ = -coords.col(0).dot(normal_);
     }
     // constructors from matrix coordinates
     /*HyperPlane(const SMatrix<N, 2>& coords) requires (M == 1) : HyperPlane(coords.col(0), coords.col(1)) { }

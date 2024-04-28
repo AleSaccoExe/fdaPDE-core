@@ -398,7 +398,7 @@ std::unordered_set<unsigned> Connections::replace_node_in_node_to_elems(unsigned
 template<typename Element>
 void Connections::erase_elems_in_node_to_elems(const std::vector<Element> & to_remove)
 {
-	assert(to_remove.size() == 2);
+	// assert(to_remove.size() == 2);
 	for (const Element & elem : to_remove)
 	{
 		std::array<int, Element::n_vertices> node_ids = elem.node_ids();
@@ -421,6 +421,31 @@ std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connection
 	// caso di tetraedri
 	if constexpr(facet.size() == 3)
 	{
+		for(unsigned i = 0; i < 3; ++i)
+		{
+			const auto & conn_nodes_i = node_to_nodes[facet[i]]; // nodi connesi a i
+			for(unsigned j = i+1; j < 3; ++j)
+			{
+				std::set<int> tmp_facet = {static_cast<int>(facet[i]), static_cast<int>(facet[j])};
+				std::unordered_set<unsigned> conn_nodes = node_to_nodes[facet[j]]; // nodi connessi a j
+				// intersezione tra i due set
+				for (auto it = conn_nodes.begin(); it != conn_nodes.end();) {
+		    		if (!conn_nodes_i.count(*it)) { it = conn_nodes.erase(it); }
+		    		else              { ++it; }
+				}
+				// ora vengono aggiunte le facce da eliminare: (i, j, ...)
+				for(unsigned conn_node : conn_nodes)
+				{
+					tmp_facet.insert(conn_node);
+					if(facets.find(tmp_facet)!=facets.end()){
+						to_erase.insert(facets.at(tmp_facet));
+						facets.erase(tmp_facet);	
+					}
+					tmp_facet.erase(conn_node);
+				}
+
+			}
+		}
 		for(unsigned i = 1; i < 3; ++i)
 		{
 			// questa è la faccia da controllare
@@ -452,11 +477,10 @@ std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connection
 					}
 				}
 			}
-
-		}	
-	}
-	// caso di triangoli
-	else
+			
+		}
+	} // if constexpr(facet.size()==3)
+	else // caso di triangoli
 	{
 		std::set<unsigned> conn_nodes(node_to_nodes[facet[1]].begin(), node_to_nodes[facet[1]].end());
 		assert(conn_nodes.find(collapsing_node)!=conn_nodes.end());
@@ -477,12 +501,11 @@ std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connection
 				to_modify.insert(old_id);
 			}
 		}
+		facets.erase({facet.begin(), facet.end()});
 	}
-	unsigned facet_id = facets.at({facet.begin(), facet.end()});
+	// unsigned facet_id = facets.at({facet.begin(), facet.end()});
 	// to_erase.insert(facet_id);
-	facets.erase({facet.begin(), facet.end()});
 	return {to_erase, to_modify};
-
 } // update_facets
 
 template<typename Element, typename FacetType>
@@ -498,25 +521,61 @@ std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connection
 		replace_node_in_node_to_nodes(facet[i], collapsing_node);
 		replace_node_in_node_to_elems(facet[i], collapsing_node);
 	}
+	std::cout<<"d\n";
 	for(unsigned i = 1; i < facet.size(); ++i)
 		node_to_nodes[collapsing_node].erase(facet[i]);
 	return facets_info;
 }
 
 
+
 std::set<unsigned> Connections::facets_to_update(unsigned node_id) const
 {
 	std::set<unsigned> facet_ids;
-	const auto & node_ids = node_to_nodes[node_id];
-	for(unsigned node_id2 : node_ids)
+	const auto & node_ids = node_to_nodes[node_id]; // sono i nodi connessi a id
+	if(facets.begin()->first.size() == 2) // le facce salvate hanno 2 nodi
 	{
-		facet_ids.insert(facets.at({static_cast<int>(node_id), static_cast<int>(node_id2)}));
-		const auto & node_ids2 = node_to_nodes[node_id2];
-		for(unsigned node_id3 : node_ids2)
-			facet_ids.insert(facets.at({static_cast<int>(node_id2), static_cast<int>(node_id3)}));
+		for(unsigned node_id2 : node_ids)
+		{
+			facet_ids.insert(facets.at({static_cast<int>(node_id), static_cast<int>(node_id2)}));
+			const auto & node_ids2 = node_to_nodes[node_id2];
+			for(unsigned node_id3 : node_ids2)
+				facet_ids.insert(facets.at({static_cast<int>(node_id2), static_cast<int>(node_id3)}));
+		}
+		return facet_ids;
 	}
-	return facet_ids;
+	else // le facce salvate hanno 3 nodi
+	{
+		for(unsigned node_id2 : node_ids)
+		{
+			std::set<int> tmp_facet = {static_cast<int>(node_id), static_cast<int>(node_id2)};
+			const auto & node_ids2 = node_to_nodes[node_id2];
+			for(unsigned node_id3 : node_ids2) // per ogni nodo id3 connesso a id2...
+			{
+				tmp_facet.insert(static_cast<unsigned>(node_id3));
+				if(facets.find(tmp_facet)!=facets.end()) // ...si vede se la faccia (id, id2, id3) effettivamente esiste
+					{ facet_ids.insert(facets.at(tmp_facet)); } // se esiste allora va aggiunta al set in uscita
+				tmp_facet.erase(static_cast<int>(node_id3));
+				const auto & node_ids3 = node_to_nodes[node_id3];
+				for(unsigned node_id4 : node_ids3) // si controllano anche le facce (id3, id4, ...)
+				{
+					std::set<int> tmp_facet2 = {static_cast<int>(node_id3), static_cast<int>(node_id4)};
+					const auto & node_ids4 = node_to_nodes[node_id4];
+					for(unsigned node_id5 : node_ids4)
+					{
+						tmp_facet2.insert(static_cast<int>(node_id5));
+						if(facets.find(tmp_facet2)!=facets.end())
+							{ facet_ids.insert(facets.at(tmp_facet2)); }
+						tmp_facet2.erase(node_id5);
+					}
+				}
+			}
+		}
+		return facet_ids;
+	}
+	return {}; // in teoria non si verifica mai
 }
+
 
 }
 }

@@ -254,8 +254,8 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
 	    // std::cout<<"tempo for su collapse_points: "<<duration_cast<duration<double>>(end_for_collapse_points - start_for_collapse_points).count()<<"\n";
 	    // ora si prende il costo minore e si controllano le intersezioni
 	    // prima dalla classe sgs_ vengono eliminate le informazioni su elementi modificati ed elementi eliminati
-	    // sgs_.erase_elements(elems_to_modify_ids);
-	    // sgs_.erase_elements(elems_to_erase_ids);
+	    sgs_.erase_elements(elems_to_modify_ids);
+	    sgs_.erase_elements(elems_to_erase_ids);
 	    auto start_for_tmp_costs_map = Clock::now();
 	    for(auto it = tmp_costs_map.begin(); it != tmp_costs_map.end(); ++it)
 	    {
@@ -276,9 +276,9 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
 	        // ora passo a sgs il vettore di elementi elems_modified, che è formato di elementi da modificare
 	        // La classe provvede quindi a capire le possibili intersezioni date dal collapse di facet
 	        // sgs_.update(elems_modified, elems_to_erase_ids, false);
-	        /*int n_controlli = 0;
-	        std::cout<<"elementi modificati: "<<elems_modified.size()<<"\n";
-	        for(const auto & elem : elems_modified){
+	        int n_controlli = 0;
+	        // std::cout<<"elementi modificati: "<<elems_modified.size()<<"\n";
+	        /*for(const auto & elem : elems_modified){
 	        	unsigned stop;
 	            auto elems_to_check = sgs_.get_neighbouring_elements(elem);
 	            n_controlli+=elems_to_check.size();
@@ -291,7 +291,7 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
 	                    std::cout<<"trovata intersezione\n";
 	                    valid_collapse = false;
 	                    break;
-	                    std::cin>>stop;
+	                    // std::cin>>stop;
 	                } 
 	            }
 	            if(!valid_collapse) 
@@ -311,9 +311,9 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
 	    auto end_for_tmp_costs_map = Clock::now();
 	    // std::cout<<"tempo for su tmp_costs_map: "<<duration_cast<duration<double>>(end_for_tmp_costs_map - start_for_tmp_costs_map).count()<<"\n";
 	    // a questo punto si ripristina la classe sgs al suo stato iniziale
-	    // sgs_.add_elements(elems_to_modify);
+	    sgs_.add_elements(elems_to_modify);
 	    // sgs_.update_f(elems_tmp);
-	    // sgs_.add_elements(elems_to_erase);
+	    sgs_.add_elements(elems_to_erase);
 	    // se i costi massimi sono da aggiornare non si prosegue con il controllo sulle intersezioni
 	    if constexpr(K > 1) { if(max_to_update) {break;} }
 	    } // if(connections_.nodes_on_facet(facet).size()==2)
@@ -354,15 +354,15 @@ std::vector<SVector<N>> Simplification<M, N>::get_collapse_points(const FacetTyp
 		for(unsigned id : facet)
 			collapse_points.push_back(nodes_.row(id));
 		SMatrix<N, M> J;
-		/*for (std::size_t j = 0; j < M; ++j) {
-			std::cout<<facet[j+1]<<"\n";
+		for (std::size_t j = 0; j < M-1; ++j) {
 			SVector<N> col = nodes_.row(facet[j+1]) - nodes_.row(facet[0]);
 			J.col(j) = col; 
-		}*/
+		}
 		SVector<M> barycentric_mid_point;
 	    barycentric_mid_point.fill(1.0 / (M + 1));
 	    SVector<N> mid_point = J * barycentric_mid_point + static_cast<SVector<N>>(nodes_.row(facet[0]));
-		collapse_points.emplace_back(0.5*(nodes_.row(facet[0]) + nodes_.row(facet[1])));
+		// collapse_points.emplace_back(0.5*(nodes_.row(facet[0]) + nodes_.row(facet[1])));
+		collapse_points.push_back(mid_point);
 		if constexpr(M == 2 && N == 3)
 		{
 			auto elem_ids1 = connections_.elems_modified_in_collapse(facet);
@@ -586,25 +586,25 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
 	// viene semplificata la faccia con costo minore
 	unsigned numero_semplificazione = 1;
 	std::cout<<"inizia la semplificazione\n";
-	while(n_nodes_ > n_nodes)
+	std::cout<<"costs_map_.size()="<<costs_map_.size()<<"\n";
+	while(n_nodes_ > n_nodes && costs_map_.size() > 0)
 	{
+		auto start_collapse = Clock::now();
 		std::cout<<"inizio semplificazione "<<numero_semplificazione<<"\n";
 		numero_semplificazione++;
 		auto it = costs_map_.begin();
-		auto start_intersezioni = Clock::now();
+		// auto start_intersezioni = Clock::now();
 		/*while(does_intersect(it->second.first, it->second.second)) {
 			erase_facets({it->second.first});
 			it = costs_map_.begin();
 		}*/
-		auto end_intersezioni = Clock::now();
+		// auto end_intersezioni = Clock::now();
 		// std::cout<<"tempo intersezioni: "<<duration_cast<duration<double>>(end_intersezioni - start_intersezioni).count()<<"\n";
 		auto collapse_info = *it;
+		std::cout<<"facet_id: "<<collapse_info.second.first<<"\n";
 		auto facet = facets_[collapse_info.second.first]; // viene presa la faccia da contrarre
 		auto elems_to_modify = connections_.elems_modified_in_collapse(facet);
         auto elems_to_erase = connections_.elems_erased_in_collapse(facet);
-        std::cout<<"lato: "<<collapse_info.second.first<<"\nnodi lato: "<<facet[0]<<", "<<facet[1]<<"\n";
-        std::cout<<"coordinate:\n"<<nodes_.row(facet[0])<<"\n"<<nodes_.row(facet[1])<<"\n";
-        std::cout<<"coordinate collapse node:\n"<<collapse_info.second.second<<"\n";
         // si modificano gli elementi
         // il vettore viene riempito con gli elementi modificati
 		std::vector<Element<M, N>> elems_modified = modify_elements(elems_to_modify, facet, collapse_info.second.second);
@@ -644,14 +644,14 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
         auto facets_pair = connections_.collapse_facet(facet, elems_erased);
         auto end_collapse_facet = Clock::now();
         // std::cout<<"tempo collapse_facet: "<<duration_cast<duration<double>>(end_collapse_facet - start_collapse_facet).count()<<"\n";
-        assert(facets_pair.first.size()==2);
+        // assert(facets_pair.first.size()==2);
         // vengono eliminate le informazioni sulle facce che non esistono più
         facets_pair.first.insert(collapse_info.second.first);
         erase_facets(facets_pair.first);
         // e anche tutte le altre facce con costi da ricalcolare
-        auto start_facets_to_update = Clock::now();
+        // auto start_facets_to_update = Clock::now();
         auto facets_to_update = connections_.facets_to_update(facet[0]);
-        auto end_facets_to_update = Clock::now();
+        // auto end_facets_to_update = Clock::now();
         // std::cout<<"tempo facets_to_update: "<<duration_cast<duration<double>>(end_facets_to_update - start_facets_to_update).count()<<"\n";
 		modify_facets(facets_pair.second, facet);
         erase_facets({facets_to_update.begin(), facets_to_update.end()});
@@ -685,7 +685,7 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
         	auto start_refresh = Clock::now();
         	sgs_.refresh(elems_vec_, connections_.get_active_elements(), connections_.get_active_nodes().size());
         	auto end_refresh = Clock::now();
-        	std::cout<<"tempo sgs_.refresh : "<<duration_cast<duration<double>>(end_facets_to_update - start_facets_to_update).count()<<"\n";
+        	std::cout<<"tempo sgs_.refresh : "<<duration_cast<duration<double>>(end_refresh - start_refresh).count()<<"\n";
         }
         // aggiornate le informazioni sul bordo
         update_boundary(facet);
@@ -700,6 +700,8 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
 
         // finito il collapse vengono tolti M - 1 nodi
         n_nodes_ = n_nodes_ - (M-1);
+        auto end_collapse = Clock::now();
+        std::cout<<"tempo collapse: "<<duration_cast<duration<double>>(end_collapse - start_collapse).count()<<"\n";
 	}
 
 } // simplify
