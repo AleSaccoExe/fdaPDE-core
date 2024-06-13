@@ -521,7 +521,6 @@ std::pair<std::unordered_set<unsigned>, std::unordered_set<unsigned>> Connection
 		replace_node_in_node_to_nodes(facet[i], collapsing_node);
 		replace_node_in_node_to_elems(facet[i], collapsing_node);
 	}
-	std::cout<<"d\n";
 	for(unsigned i = 1; i < facet.size(); ++i)
 		node_to_nodes[collapsing_node].erase(facet[i]);
 	return facets_info;

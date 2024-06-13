@@ -204,6 +204,7 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
 	for(unsigned facet_id : facet_ids){
 		const auto & facet = facets_[facet_id];
     	std::vector<SVector<N>> collapse_points = get_collapse_points(facet);
+    	//std::cout<<"1\n";
     	// viene aggiunto un costo se: sulla faccia ci sono 2 nodi
 	    if(connections_.nodes_on_facet(facet).size()==2 && collapse_points.size() != 0)
 	    {
@@ -211,12 +212,14 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
 	    std::map<double, SVector<N>> tmp_costs_map;
 	    auto elems_to_modify_ids = connections_.elems_modified_in_collapse(facet);
 	    auto elems_to_erase_ids = connections_.elems_erased_in_collapse(facet);
+	    //std::cout<<"2\n";
 	    // viene creato un vettore degli elementi involved nel collapse di facet
         std::vector<Element<M, N>> elems_to_modify;
         elems_to_modify.reserve(elems_to_modify_ids.size());
         for(unsigned elem_id : elems_to_modify_ids) {elems_to_modify.push_back(elems_vec_[elem_id]); }
         std::vector<Element<M, N>> elems_to_erase;
         for(unsigned elem_id : elems_to_erase_ids) {elems_to_erase.push_back(elems_vec_[elem_id]); }
+        //std::cout<<"3\n";
         // vengono presi i dati da proiettare
         std::unordered_set<unsigned> data_ids;
         for(unsigned elem_id : elems_to_erase_ids)
@@ -227,20 +230,33 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
         std::vector<SVector<N>> old_normals;
         old_normals.reserve(elems_to_modify_ids.size());
         for(unsigned elem_id : elems_to_modify_ids) { old_normals.push_back(elems_vec_[elem_id].hyperplane().normal()); }
-
-        auto start_for_collapse_points = Clock::now();
-	    for(auto& collapse_point : collapse_points)
+		auto start_for_collapse_points = Clock::now();
+       	// std::cout<<"4\n";
+       	// const SVector<N>& punto_prova = collapse_points[0];
+       	// std::cout<<punto_prova<<"\n";
+       	// std::cout<<"collapse_points.size()="<<collapse_points.size()<<"\n";
+	    for(int i = 0; i < collapse_points.size(); ++i)
 	    {
+	    	// std::cout<<"00 "<<std::endl;
+	    	const SVector<N>& collapse_point = collapse_points[i];
+	    	// std::cout<<"a "<<std::endl;
 	    	std::vector<Element<M, N>> elems_modified = modify_elements(elems_to_modify_ids, facet, collapse_point);
 	    	// vengono calcolate le nuove normali agli elementi
+	    	// std::cout<<"b "<<std::endl;
 	    	std::vector<SVector<N>> new_normals;
 	    	new_normals.reserve(elems_modified.size());
-	    	for(const auto & elem : elems_modified) { new_normals.push_back(elem.hyperplane().normal()); }
+	    	for(const auto & elem : elems_modified) { 
+	    		//std::cout<<elem.hyperplane().normal()<<std::endl;
+	    		SVector<N> new_normal = elem.hyperplane().normal(); // std::cout<<"create normal"<<std::endl;
+	    		new_normals.push_back(new_normal); // std::cout<<"push_back"<<std::endl;
+	    	}
+	    	// std::cout<<"c "<<std::endl;
 	    	// controllo sulla validità del collapse
 	    	bool valid_collapse = true;
 	    	for(unsigned i = 0; i < elems_modified.size() && valid_collapse; ++i)
-	        	{ valid_collapse = valid_collapse && ( elems_modified[i].measure()>DOUBLE_TOLERANCE )
+	        	{ valid_collapse = valid_collapse && ( elems_modified[i].measure()>100.0*DOUBLE_TOLERANCE )
 	        								  && ( new_normals[i].dot(old_normals[i]) > DOUBLE_TOLERANCE ); }
+	        // std::cout<<"d "<<std::endl;
 	     	if(valid_collapse)
 	     	{
 		        // calcolato il costo del collapse
@@ -249,7 +265,9 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
 		        // double cost = (... + cost_objs(elems_to_modify, elems_to_erase, elems_modified, collapse_point, data_ids));
 		        tmp_costs_map[cost] = collapse_point;
 		    }
+		    // std::cout<<"e "<<std::endl;
 	    }
+	    // std::cout<<"5"<<std::endl;
 	    auto end_for_collapse_points = Clock::now();
 	    // std::cout<<"tempo for su collapse_points: "<<duration_cast<duration<double>>(end_for_collapse_points - start_for_collapse_points).count()<<"\n";
 	    // ora si prende il costo minore e si controllano le intersezioni
@@ -280,12 +298,16 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
 	        // std::cout<<"elementi modificati: "<<elems_modified.size()<<"\n";
 	        /*for(const auto & elem : elems_modified){
 	        	unsigned stop;
+	        	auto start_get_neigh_elems = Clock::now();
 	            auto elems_to_check = sgs_.get_neighbouring_elements(elem);
+	            auto end_get_neigh_elems = Clock::now();
+	            std::cout<<"tempo get_neigh_elems: "<<duration_cast<duration<double>>(end_get_neigh_elems - start_get_neigh_elems).count()<<"\n";
 	            n_controlli+=elems_to_check.size();
 	            // std::cout<<"elementi da controllare per le intersezioni: "<<elems_to_check.size()<<"\n";	           
+	            auto start_intersezioni = Clock::now();
 	            for(unsigned elem_id : elems_to_check)
 	        	{ 
-	        		auto start_intersezione = Clock::now();
+	        		// auto start_intersection = Clock::now();
 	                if(elems_vec_[elem_id].intersection(elem))
 	                {
 	                    std::cout<<"trovata intersezione\n";
@@ -293,7 +315,11 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
 	                    break;
 	                    // std::cin>>stop;
 	                } 
+	                // auto end_intersection = Clock::now();
+	                // std::cout<<"tempo intersezione: "<<duration_cast<duration<double>>(end_intersection - start_intersection).count()<<"\n";
 	            }
+	            auto end_intersezioni = Clock::now();
+	            std::cout<<"tempo intersezioni: "<<duration_cast<duration<double>>(end_intersezioni - start_intersezioni).count()<<"\n";
 	            if(!valid_collapse) 
 	            	break;
 	    	}*/
@@ -465,7 +491,7 @@ void Simplification<M, N>::update_max_costs(const std::set<unsigned> & facet_ids
 	        // controllo sull'area dei triangoli e sulle normali:
 	        for(unsigned i = 0; i < elems_modified.size() && valid_collapse; ++i)
 	        {
-	        	valid_collapse = valid_collapse && ( elems_modified[i].measure()>DOUBLE_TOLERANCE )
+	        	valid_collapse = valid_collapse && ( elems_modified[i].measure()>100.0*DOUBLE_TOLERANCE )
 	        									&& ( new_normals[i].dot(old_normals[i]) > DOUBLE_TOLERANCE );
 	        }
 	        // calcolato il costo del collapse
@@ -593,6 +619,7 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
 		std::cout<<"inizio semplificazione "<<numero_semplificazione<<"\n";
 		numero_semplificazione++;
 		auto it = costs_map_.begin();
+		// std::cout<<"facet id: "<<it->second.first<<"\ncollapse point:\n"<<it->second.second<<"\n";
 		// auto start_intersezioni = Clock::now();
 		/*while(does_intersect(it->second.first, it->second.second)) {
 			erase_facets({it->second.first});
@@ -601,7 +628,6 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
 		// auto end_intersezioni = Clock::now();
 		// std::cout<<"tempo intersezioni: "<<duration_cast<duration<double>>(end_intersezioni - start_intersezioni).count()<<"\n";
 		auto collapse_info = *it;
-		std::cout<<"facet_id: "<<collapse_info.second.first<<"\n";
 		auto facet = facets_[collapse_info.second.first]; // viene presa la faccia da contrarre
 		auto elems_to_modify = connections_.elems_modified_in_collapse(facet);
         auto elems_to_erase = connections_.elems_erased_in_collapse(facet);

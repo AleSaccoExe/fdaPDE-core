@@ -63,7 +63,7 @@ template <int M, int N> class HyperPlane {
             }
             basis_.col(i) /= basis_.col(i).norm();
         }
-        normal_ = basis_.fullPivLu().kernel();   // normal to the hyperplane is any element in the null space of basis_
+        // normal_ = basis_.fullPivLu().kernel();   // normal to the hyperplane is any element in the null space of basis_
         SVector<N> u = coords.col(1) - coords.col(0);
         SVector<N> v = coords.col(2) - coords.col(0);
         SVector<N> w = coords.col(3) - coords.col(0);

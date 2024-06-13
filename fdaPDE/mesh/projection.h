@@ -4,6 +4,8 @@
 #include <unordered_set>
 #include <map>
 #include <vector>
+#include <chrono>
+#include <iostream>
 
 #include "element.h"
 
@@ -25,7 +27,14 @@ std::vector<std::unordered_set<unsigned>> project(const std::vector<Element<M, N
 			if(elems[i].contains(datum)) { new_elem_to_data[i].insert(datum_id); ok = true;} 
 		}
 		if(!ok)
-			std::cout<<"non va bene!\n";
+		{
+			std::cout<<"non va bene! Il dato non appartiene afìd alcun elemento\n";
+			std::cout<<"elementi modificati:\n";
+			for(const auto & elem : elems)
+				std::cout<<elem.coords()[0]<<"\n"<<elem.coords()[1]<<"\n"<<elem.coords()[2]<<std::endl;
+			std::cout<<"posizione del dato:\n";
+			std::cout<<datum<<std::endl;
+		}
 	}
 	return new_elem_to_data;
 }
@@ -51,7 +60,7 @@ std::vector<std::unordered_set<unsigned>> project(const std::vector<Element<2, 3
 		{
 			const auto & elem = elems[i];
 			// si vede se il dato coincide con un vertice
-			for(SVector<3> vertex : elem.coords())
+			/*for(SVector<3> vertex : elem.coords())
 				if((vertex-datum).norm()<DOUBLE_TOLERANCE) // il dato coincide col vertice
 				{
 					opt_pos = datum;
@@ -74,7 +83,7 @@ std::vector<std::unordered_set<unsigned>> project(const std::vector<Element<2, 3
 						done = true;
 						already_inside = true;
 					}
-				}
+				}*/
 			if(elem.contains(datum)) // si verifica se il punto è interno al triangolo
 			{
 				opt_pos = datum;
@@ -235,13 +244,13 @@ std::vector<std::unordered_set<unsigned>> project(const std::vector<Element<2, 3
 // funzione che viene utilizzata dal costo data_disp_cost
 // implementazione valida per mesh che non devono proiettare i dati (2D, 3D)
 template<int M, int N>
-std::vector<std::set<unsigned>> projection_info(const std::vector<Element<M, N>>&  elems, const DMatrix<double> & data, 
+std::vector<std::unordered_set<unsigned>> projection_info(const std::vector<Element<M, N>>&  elems, const DMatrix<double> & data, 
 										const std::unordered_set<unsigned>& data_ids)
 {
-	std::vector<std::set<unsigned>> new_elem_to_data(elems.size());
+	std::vector<std::unordered_set<unsigned>> new_elem_to_data(elems.size());
 	for(unsigned datum_id : data_ids)
 	{
-		const SVector<N> datum = data.row(datum_id);
+		const SVector<N>& datum = data.row(datum_id);
 		for(unsigned i = 0; i < elems.size(); ++i)
 		{
 			if(elems[i].contains(datum)) { new_elem_to_data[i].insert(datum_id); } 
@@ -251,10 +260,10 @@ std::vector<std::set<unsigned>> projection_info(const std::vector<Element<M, N>>
 }										
 
 template<>
-std::vector<std::set<unsigned>> projection_info(const std::vector<Element<2, 3>>&  elems, const DMatrix<double> & data, 
+std::vector<std::unordered_set<unsigned>> projection_info(const std::vector<Element<2, 3>>&  elems, const DMatrix<double> & data, 
 										const std::unordered_set<unsigned>& data_ids)
 {
-	std::vector<std::set<unsigned>> new_elem_to_data(elems.size());
+	std::vector<std::unordered_set<unsigned>> new_elem_to_data(elems.size());
 	for(unsigned datum_id : data_ids) // loop sui dati da proiettare
 	{
 		unsigned opt_elem;
@@ -268,7 +277,7 @@ std::vector<std::set<unsigned>> projection_info(const std::vector<Element<2, 3>>
 		{
 			const auto & elem = elems[i];
 			// si vede se il dato coincide con un vertice
-			for(SVector<3> vertex : elem.coords())
+			/*for(SVector<3> vertex : elem.coords())
 				if((vertex-datum).norm()<DOUBLE_TOLERANCE) // il dato coincide col vertice
 				{
 					opt_pos = datum;
@@ -291,7 +300,7 @@ std::vector<std::set<unsigned>> projection_info(const std::vector<Element<2, 3>>
 						done = true;
 						already_inside = true;
 					}
-				}
+				}*/
 			if(elem.contains(datum)) // si verifica se il punto è interno al triangolo
 			{
 				opt_pos = datum;
@@ -317,13 +326,13 @@ std::vector<std::set<unsigned>> projection_info(const std::vector<Element<2, 3>>
 		if(inside && !already_inside) {new_elem_to_data[opt_elem].insert(datum_id);}
 		if(!done) // il dato non poteva essere proiettato all'interno di un elemento
 		{
-			std::set<unsigned> elems_on_datum; // contiene gli elementi a cui il dato appartiene
+			std::unordered_set<unsigned> elems_on_datum; // contiene gli elementi a cui il dato appartiene
 			for(unsigned i = 0; i < elems.size(); ++i)
 			{
 				const auto & elem = elems[i];
-				SVector<3> A = elem.coords()[0];
-				SVector<3> B = elem.coords()[1];
-				SVector<3> C = elem.coords()[2];
+				const SVector<3>& A = elem.coords()[0];
+				const SVector<3>& B = elem.coords()[1];
+				const SVector<3>& C = elem.coords()[2];
 				// proiezione sul lato AB
 				double t = -(A-datum).dot(B-A)/(B-A).squaredNorm();
 				SVector<3> p_datum = A + t*(B-A);
@@ -458,7 +467,7 @@ SVector<3> project(const std::vector<Element<2, 3>>&  elems, SVector<3> datum)
 		{
 			const auto & elem = elems[i];
 			// si vede se il dato coincide con un vertice
-			for(SVector<3> vertex : elem.coords())
+			/*for(SVector<3> vertex : elem.coords())
 				if((vertex-datum).norm()<DOUBLE_TOLERANCE) // il dato coincide col vertice
 				{
 					opt_pos = datum;
@@ -479,7 +488,7 @@ SVector<3> project(const std::vector<Element<2, 3>>&  elems, SVector<3> datum)
 						done = true;
 						already_inside = true;
 					}
-				}
+				}*/
 			if(elem.contains(datum)) // si verifica se il punto è interno al triangolo
 			{
 				opt_pos = datum;

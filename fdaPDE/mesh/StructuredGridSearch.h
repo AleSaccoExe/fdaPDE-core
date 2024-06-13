@@ -37,7 +37,7 @@ class StructuredGridSearch{
 		std::array<unsigned, N> n_cells;
 		// questa mappa contiene per ogni elemento (riconosciuto tramite id) il suo bounding box
 		// il bounding box è definito come una std::pair dei punti che lo definiscono
-		std::unordered_map< unsigned, BoundingBoxType > boxes_map;
+		std::vector< BoundingBoxType > boxes_map;
 		// serve per capire quando è necessario ricalcolare i bounding_box e gli indici degli elementi
 		bool to_refresh_ = false;
 
@@ -152,7 +152,8 @@ StructuredGridSearch<M, N>::StructuredGridSearch(const Mesh<M, N> & mesh)
 	for(unsigned id_el = 0; id_el < n_elements; ++id_el) 
 	{
 		auto bounding_box = mesh.element(id_el).bounding_box();
-		boxes_map[id_el] = bounding_box;
+		// boxes_map[id_el] = bounding_box;
+		boxes_map.push_back(bounding_box);
 		SVector<N> middle_point =  ( bounding_box.first + bounding_box.second )*0.5;
 		idx_map[compute_index(middle_point)].insert(id_el);
 	}
@@ -172,7 +173,8 @@ void StructuredGridSearch<M, N>::update_f(const std::vector<Element<M, N>> & ele
 		// Extract element index
 		// if(boxes_map.find(el_id) != boxes_map.end())
 		{
-			auto bounding_box = boxes_map.at(el_id); // get the bounding box of the element
+			// auto bounding_box = boxes_map.at(el_id); // get the bounding box of the element
+			auto bounding_box = boxes_map[el_id];
 			// compute the middle point of the bb to get the old index of the element
 			SVector<N> middle_point = 0.5*(bounding_box.first + bounding_box.second);
 			unsigned idx = compute_index(middle_point); // old index of the element
@@ -197,24 +199,27 @@ void StructuredGridSearch<M, N>::update_f(const std::vector<Element<M, N>> & ele
 template<int M, int N>
 typename StructuredGridSearch<M, N>::BoundingBoxType StructuredGridSearch<M, N>::get_bounding_box(unsigned el_id) const
 {
+	/*
 	if(boxes_map.find(el_id) != boxes_map.end())
 		return boxes_map.at(el_id);
 	// se l'elemento non è presente viene ritornato il global bb giusto per far tornare qualcosa
 	return std::make_pair(global_SW, global_NE);
+	*/
+	return boxes_map[el_id];
 }
 
 template<int M, int N>
 void StructuredGridSearch<M, N>::erase_elements(const std::unordered_set<unsigned> & el_ids)
 {
 	for(unsigned el_id : el_ids)
-		if(boxes_map.find(el_id) != boxes_map.end())
+		// if(boxes_map.find(el_id) != boxes_map.end())
 		{
 			auto bounding_box = boxes_map[el_id];
 			SVector<N> middle_point = 0.5*( bounding_box.first + bounding_box.second );
 			unsigned el_idx = compute_index(middle_point);
 			// se tutto è giusto nell'indice el_idx dovrebbe trovarsi l'id dell'elemento corrente
 			// da eliminare
-			assert(idx_map[el_idx].find(el_id) != idx_map[el_idx].end());
+			// assert(idx_map[el_idx].find(el_id) != idx_map[el_idx].end());
 			idx_map[el_idx].erase(el_id);
 		}
 }
@@ -374,7 +379,8 @@ void StructuredGridSearch<M, N>::refresh(const std::vector<Element<M, N>> & elem
 	for(unsigned id_el : active_elems) 
 	{
 		auto bounding_box = elems[id_el].bounding_box();
-		boxes_map[id_el] = bounding_box;
+		// boxes_map[id_el] = bounding_box;
+		boxes_map.push_back(bounding_box);
 		SVector<N> middle_point =  ( bounding_box.first + bounding_box.second )*0.5;
 		idx_map[compute_index(middle_point)].insert(id_el);
 	}
@@ -425,7 +431,7 @@ std::unordered_set<unsigned> StructuredGridSearch<M, N>::get_neighbouring_elemen
 					{
 						std::set<unsigned> range = it->second;
 						for(unsigned id : range)
-							if(boxes_intersection(boxes_map.at(id), bounding_box))
+							if(boxes_intersection(boxes_map[id], bounding_box))
 								res.insert(id);
 					}					
 				}

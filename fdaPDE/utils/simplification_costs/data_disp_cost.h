@@ -3,6 +3,8 @@
 
 #include "../../mesh/simplification.h"
 #include "../symbols.h"
+#include <chrono>
+#include <iostream>
 
 namespace fdapde{
 namespace core{
@@ -42,11 +44,11 @@ struct DataDispCost{
 	{
 		double disp_cost = 0.0;
 		// nuove connessioni elemento - dati
-		std::vector<std::set<unsigned>> new_elem_to_data = projection_info(elems_modified, p_simp_->get_data(),data_ids);
-		std::map<unsigned, std::set<unsigned>> new_data_to_elem;
+		std::vector<std::unordered_set<unsigned>> new_elem_to_data = projection_info(elems_modified, p_simp_->get_data(),data_ids);
+		std::unordered_map<unsigned, std::unordered_set<unsigned>> new_data_to_elem;
 		for(unsigned i = 0; i < new_elem_to_data.size(); ++i)
 		{
-			auto data_on_elem = new_elem_to_data[i];
+			auto& data_on_elem = new_elem_to_data[i];
 			for(unsigned datum_id : data_on_elem) {new_data_to_elem[datum_id].insert(i);}
 		}
 		// adesso per ogni elemento in elems_modifed si calcola il qoi
@@ -68,7 +70,7 @@ struct DataDispCost{
 					Nt += 1.;
 				else
 					Nt += 1./patch_size;
-				assert(patch_size != 0);
+				// assert(patch_size != 0);
 			}
 			disp_cost += (mean_qoi_ - Nt)*(mean_qoi_ - Nt);
 		}

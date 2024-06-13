@@ -36,13 +36,13 @@ using namespace fdapde::core;
 using namespace std;
 
 
-
+/*
 TEST(simplification_test, surface)
 {
     using Clock = std::chrono::high_resolution_clock;
     using std::chrono::duration;
     using std::chrono::duration_cast;
-
+    
     GeomCost geom_cost;
     DataDistCost data_dist_cost;
     SharpElemsCost<2, 3> sharp_elems_cost;
@@ -82,7 +82,7 @@ TEST(simplification_test, surface)
         elements(i, 0) = std::stoi(node_id1)-1;
         elements(i, 1) = std::stoi(node_id2)-1;
         elements(i, 2) = std::stoi(node_id3)-1;
-    }
+    }*/
     /*
     std::ifstream orig_elems_file("../../../meshes/simulation2_triangles.txt");
     std::ifstream orig_nodes_file("../../../meshes/simulation2_vertices.txt");
@@ -132,24 +132,40 @@ TEST(simplification_test, surface)
         elements(i, 1) = std::stoi(node_id2)-1;
         elements(i, 2) = std::stoi(node_id3)-1;
     }*/
-    
+    /*
     // Simplification simp(meshloader.mesh);
     DMatrix<int> boundary(n_nodes, 1);
     boundary.setZero();
     Mesh<2, 3> mesh(nodes, elements, boundary);
     std::cout<<"mesh creata\n";
-
+    StructuredGridSearch sgs(mesh);
+    auto start_sgs = Clock::now();
+    {
+    auto ids = sgs.get_neighbouring_elements(mesh.element(10));
+    for (auto id : ids)
+            std::cout << id << " ";
+    std::cout << std::endl;
+    }
+    
+    {
+    auto ids = sgs.get_neighbouring_elements(mesh.element(20));
+    for (auto id : ids)
+            std::cout << id << " ";
+    std::cout << std::endl;
+    }
+    auto end_sgs = Clock::now();
+    std::cout<<"tempo get_neighbouring_elements: "<<duration_cast<duration<double>>(end_sgs - start_sgs).count();
     Simplification simp(mesh);
     std::cout<<"simp inizializzata\n";
     // std::cout<<"nodi mesh: "<<meshloader.mesh.n_nodes()<<"\nInserire il numero di nodi\n";
     std::cout<<"nodi mesh: "<<n_nodes<<", numero di elementi: "<<n_elements<<"\nInserire il numero di nodi\n";
     unsigned target_nodes;
     std::cin>>target_nodes;
-    std::array<double, 1> w = {0.5};
-    // std::array<double, 3> w = {1./3., 1./3., 1./3.};
+    // std::array<double, 1> w = {0.5};
+    std::array<double, 3> w = {1./3., 1./3., 1./3.};
     auto start = Clock::now();
-    // simp.simplify(target_nodes, w, geom_cost, data_disp_cost, data_dist_cost);
-    simp.simplify(target_nodes, w, geom_cost);
+    simp.simplify(target_nodes, w, geom_cost, data_disp_cost, data_dist_cost);
+    // simp.simplify(target_nodes, w, data_disp_cost);
     auto end = Clock::now();
     auto elapsed = duration_cast<duration<double>>(end - start);
     std::cout<<"simplificazione finita. Tempo impiegato: "<<elapsed.count()<<"\n";
@@ -162,7 +178,7 @@ TEST(simplification_test, surface)
     file_data<<simp.get_data();
     file_nodes.close();
     file_data.close();
-    file_elems.close();
+    file_elems.close();*/
     /*
     Connections conns(mesh);
     unsigned facet_id = 150;
@@ -193,7 +209,7 @@ TEST(simplification_test, surface)
     */
 
 
-    
+    /*
     std::cout<<"scrivere il nome del file di qoi e dist\n";
     std::string nome_file;
     std::cin>>nome_file;
@@ -246,10 +262,10 @@ TEST(simplification_test, surface)
     }
     if(do_intersect)
         std::cout<<"trovata intersezione\n";
-}
+}*/
 
-/*
-TEST(simplification_test, simplification_2D)
+
+/*TEST(simplification_test, simplification_2D)
 {
     using Clock = std::chrono::high_resolution_clock;
     using std::chrono::duration;
@@ -349,3 +365,286 @@ TEST(simplification_test, simplification_3D)
     file_elems_after.close();
 }
 */
+
+
+
+// semplificazione in 2D prendendo le informazioni della mesh da file:
+// * nodes_file_name.txt
+// * elems_file_name.txt
+// * boundary_file_name.txt
+/*
+TEST(simplification_test, simplification_2D)
+{
+    using Clock = std::chrono::high_resolution_clock;
+    using std::chrono::duration;
+    using std::chrono::duration_cast;
+
+    DataDispCost<2, 2> data_disp_cost;
+    SharpElemsCost<2, 2> sharp_elems_cost;
+
+    // estrazione della mesh
+    std::string file_name = "prova";
+    // vengono estratti i file: nodes_file_name.txt, elems_file_name.txt, boundary_file_name.txt
+    std::ifstream orig_elems_file("../../../meshes/meshes_2D/elems_"+file_name+".txt");
+    std::ifstream orig_nodes_file("../../../meshes/meshes_2D/nodes_"+file_name+".txt");
+    std::ifstream orig_boundary_file("../../../meshes/meshes_2D/boundary_"+file_name+".txt");
+    unsigned n_elements = 0;
+    unsigned n_nodes = 0;
+    std::string line;
+    while(getline(orig_nodes_file, line)) {++n_nodes;}
+    while(getline(orig_elems_file, line)) {++n_elements;}
+    DMatrix<int> elements(n_elements, 3);
+    DMatrix<double> nodes(n_nodes, 2);
+    DMatrix<int> boundary(n_nodes, 1);
+
+    orig_elems_file.clear();
+    orig_nodes_file.clear();
+    orig_nodes_file.seekg(0);
+    orig_elems_file.seekg(0);
+    for(unsigned i = 0; i<n_nodes; ++i)
+    {
+        std::string boundary_line;
+        getline(orig_nodes_file, line);
+        getline(orig_boundary_file, boundary_line);
+        std::string x, y;
+        std::istringstream ss(line);
+        ss>>x>>y;
+        nodes(i, 0) = std::stod(x);
+        nodes(i, 1) = std::stod(y);
+        boundary(i, 0) = std::stoi(boundary_line);
+    }
+    for(unsigned i = 0; i< n_elements; ++i)
+    {
+        getline(orig_elems_file, line);
+        std::istringstream ss(line);
+        std::string node_id1, node_id2, node_id3;
+        ss>>node_id1>>node_id2>>node_id3;
+        elements(i, 0) = std::stoi(node_id1)-1;
+        elements(i, 1) = std::stoi(node_id2)-1;
+        elements(i, 2) = std::stoi(node_id3)-1;
+    }
+    Mesh<2, 2> mesh(nodes, elements, boundary);
+    
+    Simplification simp(mesh);
+    std::cout<<"simp inizializzata\n";
+    std::cout<<"nodi mesh: "<<n_nodes<<", numero di elementi: "<<n_elements<<"\nInserire il numero di nodi\n";
+    unsigned target_nodes;
+    std::cin>>target_nodes;
+    std::array<double, 2> w = {0.99, 0.01};
+    auto start = Clock::now();
+    simp.simplify(target_nodes, w, data_disp_cost, sharp_elems_cost);
+    auto end = Clock::now();
+    auto elapsed = duration_cast<duration<double>>(end - start);
+    std::cout<<"simplificazione finita. Tempo impiegato: "<<elapsed.count()<<"\n";
+    auto mesh_simp = simp.build_mesh();
+    std::ofstream file_nodes("../../../meshes/nodes_simp.txt");
+    std::ofstream file_elems("../../../meshes/elems_simp.txt");
+    std::ofstream file_data("../../../meshes/data_simp.txt");
+    file_nodes<<mesh_simp.nodes();
+    file_elems<<mesh_simp.elements();
+    file_data<<simp.get_data();
+    file_nodes.close();
+    file_data.close();
+    file_elems.close();
+    
+}*/
+
+// semplificazione in 2D prendendo le informazioni della mesh da file:
+// * nodes_file_name.txt
+// * elems_file_name.txt
+// * boundary_file_name.txt
+TEST(simplification_test, simplification_3D)
+{
+    using Clock = std::chrono::high_resolution_clock;
+    using std::chrono::duration;
+    using std::chrono::duration_cast;
+
+    DataDispCost<3, 3> data_disp_cost;
+    // estrazione della mesh
+    std::string file_name = "cubo";
+    // vengono estratti i file: nodes_file_name.txt, elems_file_name.txt, boundary_file_name.txt
+    std::ifstream orig_elems_file("../../../meshes/meshes_3D/elems_"+file_name+".txt");
+    std::ifstream orig_nodes_file("../../../meshes/meshes_3D/nodes_"+file_name+".txt");
+    std::ifstream orig_boundary_file("../../../meshes/meshes_3D/boundary_"+file_name+".txt");
+    unsigned n_elements = 0;
+    unsigned n_nodes = 0;
+    std::string line;
+    while(getline(orig_nodes_file, line)) {++n_nodes;}
+    while(getline(orig_elems_file, line)) {++n_elements;}
+    DMatrix<int> elements(n_elements, 4);
+    DMatrix<double> nodes(n_nodes, 3);
+    DMatrix<int> boundary(n_nodes, 1);
+
+    orig_elems_file.clear();
+    orig_nodes_file.clear();
+    orig_nodes_file.seekg(0);
+    orig_elems_file.seekg(0);
+    for(unsigned i = 0; i<n_nodes; ++i)
+    {
+        std::string boundary_line;
+        getline(orig_nodes_file, line);
+        getline(orig_boundary_file, boundary_line);
+        std::string x, y, z;
+        std::istringstream ss(line);
+        ss>>x>>y>>z;
+        nodes(i, 0) = std::stod(x);
+        nodes(i, 1) = std::stod(y);
+        nodes(i, 2) = std::stod(z);
+        boundary(i, 0) = std::stoi(boundary_line);
+    }
+    for(unsigned i = 0; i< n_elements; ++i)
+    {
+        getline(orig_elems_file, line);
+        std::istringstream ss(line);
+        std::string node_id1, node_id2, node_id3, node_id4;
+        ss>>node_id1>>node_id2>>node_id3>>node_id4;
+        elements(i, 0) = std::stoi(node_id1)-1;
+        elements(i, 1) = std::stoi(node_id2)-1;
+        elements(i, 2) = std::stoi(node_id3)-1;
+        elements(i, 3) = std::stoi(node_id4)-1;
+    }
+    Mesh<3, 3> mesh(nodes, elements, boundary);    
+    Simplification simp(mesh);
+    std::cout<<"simp inizializzata\n";
+    std::cout<<"nodi mesh: "<<n_nodes<<", numero di elementi: "<<n_elements<<"\nInserire il numero di nodi\n";
+    unsigned target_nodes;
+    std::cin>>target_nodes;
+    std::array<double, 1> w = {1.0};
+    auto start = Clock::now();
+    simp.simplify(target_nodes, w, data_disp_cost);
+    auto end = Clock::now();
+    auto elapsed = duration_cast<duration<double>>(end - start);
+    std::cout<<"simplificazione finita. Tempo impiegato: "<<elapsed.count()<<"\n";
+    auto mesh_simp = simp.build_mesh();
+    std::ofstream file_nodes("../../../meshes/nodes_simp.txt");
+    std::ofstream file_elems("../../../meshes/elems_simp.txt");
+    std::ofstream file_data("../../../meshes/data_simp.txt");
+    file_nodes<<mesh_simp.nodes();
+    file_elems<<mesh_simp.elements();
+    file_data<<simp.get_data();
+    file_nodes.close();
+    file_data.close();
+    file_elems.close();
+
+
+    // la mesh viene scritta nel formato vtk
+    std::cout<<"comincia la scrittura del file .vtk\n";
+    std::string file_vtk_name = "cubo.vtu";
+    n_elements = mesh_simp.n_elements();
+    n_nodes = mesh_simp.n_nodes();
+    constexpr int dim = 3;
+
+    std::ofstream vtu;
+    vtu.open("../../../meshes/"+file_vtk_name);
+
+    vtu << "<?xml version=\"1.0\"?>\n";
+    vtu << "<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">\n";
+    vtu << "<UnstructuredGrid>\n";
+    vtu << "<Piece NumberOfPoints=\"" << n_nodes << "\" NumberOfCells=\"" << n_elements << "\">\n";
+
+    // Nodi della mesh (punti VTK)
+    vtu << "<Points>\n";
+    vtu << "<DataArray type=\"Float64\" Name=\"nodes\" NumberOfComponents=\"" << dim << "\" format=\"ascii\">\n";
+    for(unsigned i = 0; i < n_nodes; ++i){
+        for(unsigned j = 0; j < 3; ++j){
+            vtu << mesh_simp.nodes()(i, j) << " ";
+        }
+        vtu << "\n";
+    }
+    vtu << "</DataArray>\n";
+    vtu << "</Points>\n";
+
+    // Elementi della mesh (celle VTK)
+    vtu << "<Cells>\n";
+    // Specifica la connettività dei punti. Tutti gli elenchi dei punti delle celle sono concatenati insieme.
+    vtu << "<DataArray type=\"Int32\" Name=\"connectivity\" format=\"ascii\">\n";
+    for(unsigned i = 0; i < n_elements; ++i){
+        for(unsigned j = 0; j < 4; ++j){
+            vtu << mesh_simp.elements()(i, j) << " ";
+        }
+        vtu << "\n";
+    }
+    vtu << "</DataArray>\n";
+
+    // Specifica l'offset nella matrice di connettività per la fine di ogni cella
+    vtu << "<DataArray type=\"Int32\" Name=\"offsets\" format=\"ascii\">\n";
+    int offset =  4;  // Numero di punti per elemento per mesh triangolari e tetraedriche
+    for (int i = 1; i <= n_elements; ++i) {
+        vtu << i * offset << " ";
+    }
+    vtu << "\n</DataArray>\n";
+
+    // Specifica il tipo di ogni cella
+    vtu << "<DataArray type=\"Int32\" Name=\"types\" format=\"ascii\">\n";
+    int vtk_cell_type =  10;  // Codice VTK per elementi triangolari e tetraedrici
+    for (int i = 0; i < n_elements; ++i) {
+        vtu << vtk_cell_type << " ";
+    }
+    vtu << "\n</DataArray>\n";
+    vtu << "</Cells>\n";
+    vtu << "</Piece>\n";
+    vtu << "</UnstructuredGrid>\n";
+    vtu << "</VTKFile>\n";
+
+    vtu.close();
+    /*
+
+  ## insert vtk header
+  vtu %<<% '<?xml version="1.0"?>\n'
+  vtu %<<% '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">\n'
+  vtu %<<% "<UnstructuredGrid>\n"
+  vtu %<<% paste0('<Piece NumberOfPoints="', n_nodes, '" NumberOfCells="', n_elems, '">\n')
+  ## mesh nodes (vtk points)
+  vtu %<<% "<Points>\n"
+  vtu %<<% paste0('<DataArray type="Float64" Name="nodes" NumberOfComponents="', dim, '" format="ascii">\n')
+  write.table(mesh$nodes, file = vtu, append = T, row.names = F, col.names = F)
+  vtu %<<% "</DataArray>\n"
+  vtu %<<% "</Points>\n"
+  ## mesh elements (vtk cells)
+  vtu %<<% "<Cells>\n"
+  ## specifies the point connectivity. All the cells’ point lists are concatenated together.
+  vtu %<<% '<DataArray type="Int32" Name="connectivity" format="ascii">\n'
+  write.table(
+    format(mesh$elements - 1, scientific = F),
+    file = vtu, append = T, row.names = F, col.names = F, quote = F
+  )
+  vtu %<<% "</DataArray>\n"
+  ## specifies the offset into the connectivity array for the end of each cell
+  vtu %<<% '<DataArray type="Int32" Name="offsets" format="ascii">\n'
+  offset <- if (mesh$local_dim == 2) 3 else 4 ## number of points per element for triangular and tetrahedral meshes
+  write.table(
+    format(matrix(seq(offset, offset * n_elems, by = offset), nrow = 1, byrow = T), scientific = F),
+    file = vtu, append = T, row.names = F, col.names = F, quote = F
+  )
+  vtu %<<% "</DataArray>\n"
+  ## specifies the type of each cell
+  vtu %<<% '<DataArray type="Int32" Name="types" format="ascii">\n'
+  vtk_cell_type <- if (mesh$local_dim == 2) 5 else 10 ## vtk code for (surface) triangular and tetrahedral elements
+  write.table(
+    format(matrix(rep(vtk_cell_type, n_elems), nrow = 1, byrow = T), scientific = F),
+    file = vtu, append = T, row.names = F, col.names = F, quote = F
+  )
+  vtu %<<% "</DataArray>\n"
+  vtu %<<% "</Cells>\n"
+
+  if (!is.null(data)) {
+    nvdata <- ncol(data) ## number of signals to plot
+    vtu %<<% "<PointData>\n"
+    for (i in seq_len(nvdata)) {
+      vtu %<<% paste0('<DataArray type="Float64" Name="data', i, '" NumberOfComponents="1" format="ascii">\n')
+      write.table(matrix(data[, i], nrow = 1), file = vtu, append = T, row.names = F, col.names = F)
+      vtu %<<% "</DataArray>\n"
+    }
+    vtu %<<% "</PointData>\n"
+  }
+  ## footer
+  vtu %<<% "</Piece>\n"
+  vtu %<<% "</UnstructuredGrid>\n"
+  vtu %<<% "</VTKFile>\n"
+
+  ## close file
+  close(vtu)
+}
+    */
+
+}

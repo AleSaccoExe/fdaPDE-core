@@ -52,7 +52,8 @@ struct SharpElemsCost{
 					  const std::vector<Element<M, N>> & elems_modified, const SVector<N> & v, 
 					  const std::unordered_set<unsigned> & data_ids ) const
 	{
-		return get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids)/max_;
+		// return get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids)/max_;
+		return get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids);
 	}
 
 	double get_cost(const std::vector<Element<M, N>> & elems_to_modify, 

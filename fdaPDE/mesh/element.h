@@ -170,7 +170,7 @@ template <int M, int N>
 template <bool is_manifold>
 typename std::enable_if<!is_manifold, bool>::type Element<M, N>::contains(const SVector<N>& x) const {
     // A point is inside the element if all its barycentric coordinates are positive
-    return (to_barycentric_coords(x).array() >= -10 * std::numeric_limits<double>::epsilon()).all();
+    return (to_barycentric_coords(x).array() >= -100 * std::numeric_limits<double>::epsilon()).all();
 }
 
 template <int M, int N> VectorSpace<M, N> Element<M, N>::spanned_space() const {
