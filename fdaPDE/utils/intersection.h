@@ -437,11 +437,11 @@ Point2Tri inTri3d(const Eigen::Vector3d & P,
 
     // check the intersection of two bounding boxex identified by their NE and SW points
     template<int N>
-    bool boxes_intersection(const std::pair<SVector<N>, SVector<N>> & b1, const std::pair<SVector<N>, SVector<N>> & b2)
+    bool boxes_intersection(const std::array<SVector<N>, 2> & b1, const std::array<SVector<N>, 2> & b2)
     {
         for (int i = 0; i < N; ++i) {
-            if (b1.second[i] <= b2.first[i] || 
-                b2.second[i] <= b1.first[i]) {
+            if (b1[1][i] <= b2[0][i] || 
+                b2[1][i] <= b1[0][i]) {
                 return false;
             }
         }

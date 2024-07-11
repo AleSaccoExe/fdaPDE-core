@@ -186,7 +186,6 @@ std::vector<Element<M, N>> Simplification<M, N>::modify_elements(std::unordered_
         elems.emplace_back(elem_to_modify, node_ids, coords, elem_tmp.neighbors(), elem_tmp.is_on_boundary());
     }
     return elems;
-
 }
 
 // =============================
@@ -278,8 +277,37 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
 	    for(auto it = tmp_costs_map.begin(); it != tmp_costs_map.end(); ++it)
 	    {
 	    	bool valid_collapse = true;
+
+	    	int n_controlli = 0;
+	        // std::cout<<"elementi modificati: "<<elems_modified.size()<<"\n";
+	       	// viene creato un vettore degli elementi modificati nel collapse di facet
+	        std::vector<Element<M, N>> elems_modified = modify_elements(elems_to_modify_ids, facet, it->second);
+	        for(const auto & elem : elems_modified){
+	        	unsigned stop;
+	        	auto start_get_neigh_elems = Clock::now();
+	            auto elems_to_check = sgs_.get_neighbouring_elements(elem);
+	            auto end_get_neigh_elems = Clock::now();
+	            std::cout<<"tempo get_neigh_elems: "<<duration_cast<duration<double>>(end_get_neigh_elems - start_get_neigh_elems).count()<<"\n";
+	            n_controlli+=elems_to_check.size();
+	            // std::cout<<"elementi da controllare per le intersezioni: "<<elems_to_check.size()<<"\n";	           
+	            auto start_intersezioni = Clock::now();
+	            for(auto elem_id = elems_to_check.begin(); elem_id != elems_to_check.end() && valid_collapse; ++elem_id)
+	        	{ 
+	        		// auto start_intersection = Clock::now();
+	        		valid_collapse = valid_collapse && !(elems_vec_[*elem_id].intersection(elem));
+	                // auto end_intersection = Clock::now();
+	                // std::cout<<"tempo intersezione: "<<duration_cast<duration<double>>(end_intersection - start_intersection).count()<<"\n";
+	            }
+	            auto end_intersezioni = Clock::now();
+	            std::cout<<"tempo intersezioni: "<<duration_cast<duration<double>>(end_intersezioni - start_intersezioni).count()<<"\n";
+	            if(!valid_collapse){
+	            	std::cout<<"intersezione trovata"<<std::endl;
+	            	break;
+	            }
+	    	}
+
 	    	if constexpr(K > 1){
-		    	if(it->first > cost_threshold_ || (... || cost_objs.check_update()))
+		    	if(valid_collapse && (... || cost_objs.check_update()))
 		    	{
 		    		// cost_threshold_ = it->first;
 		    		cost_threshold_ = std::numeric_limits<double>::max();
@@ -289,40 +317,11 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
 		    		break;
 		    	}
 		    }
-	        // viene creato un vettore degli elementi modificati nel collapse di facet
-	        std::vector<Element<M, N>> elems_modified = modify_elements(elems_to_modify_ids, facet, it->second);
+
 	        // ora passo a sgs il vettore di elementi elems_modified, che è formato di elementi da modificare
 	        // La classe provvede quindi a capire le possibili intersezioni date dal collapse di facet
 	        // sgs_.update(elems_modified, elems_to_erase_ids, false);
-	        int n_controlli = 0;
-	        // std::cout<<"elementi modificati: "<<elems_modified.size()<<"\n";
-	        /*for(const auto & elem : elems_modified){
-	        	unsigned stop;
-	        	auto start_get_neigh_elems = Clock::now();
-	            auto elems_to_check = sgs_.get_neighbouring_elements(elem);
-	            auto end_get_neigh_elems = Clock::now();
-	            std::cout<<"tempo get_neigh_elems: "<<duration_cast<duration<double>>(end_get_neigh_elems - start_get_neigh_elems).count()<<"\n";
-	            n_controlli+=elems_to_check.size();
-	            // std::cout<<"elementi da controllare per le intersezioni: "<<elems_to_check.size()<<"\n";	           
-	            auto start_intersezioni = Clock::now();
-	            for(unsigned elem_id : elems_to_check)
-	        	{ 
-	        		// auto start_intersection = Clock::now();
-	                if(elems_vec_[elem_id].intersection(elem))
-	                {
-	                    std::cout<<"trovata intersezione\n";
-	                    valid_collapse = false;
-	                    break;
-	                    // std::cin>>stop;
-	                } 
-	                // auto end_intersection = Clock::now();
-	                // std::cout<<"tempo intersezione: "<<duration_cast<duration<double>>(end_intersection - start_intersection).count()<<"\n";
-	            }
-	            auto end_intersezioni = Clock::now();
-	            std::cout<<"tempo intersezioni: "<<duration_cast<duration<double>>(end_intersezioni - start_intersezioni).count()<<"\n";
-	            if(!valid_collapse) 
-	            	break;
-	    	}*/
+
 	    	// std::cout<<"numero controlli: "<<n_controlli<<"\n";
 			// std::cout<<"tempo intersezioni: "<<duration_cast<duration<double>>(end_intersezioni - start_intersezioni).count()<<"\n";
 	        // se non ci sono intersezioni si procede ad aggiungere le informazioni nelle strutture adeguate

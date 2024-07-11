@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>   // testing framework
 #include <cstddef>
 
+/*
 #include <fdaPDE/utils.h>
 #include <fdaPDE/mesh.h>
 #include <fdaPDE/linear_algebra.h>
@@ -34,6 +35,27 @@ using fdapde::testing::MESH_TYPE_LIST;
 using fdapde::testing::MeshLoader;
 using fdapde::testing::DOUBLE_TOLERANCE;
 using fdapde::testing::almost_equal;
+*/
+#include <fdaPDE/mesh.h>
+#include <fdaPDE/utils.h>
+#include <gtest/gtest.h>   // testing framework
+
+#include <set>
+#include <unordered_set>
+#include <vector>
+#include <fstream>
+#include <string>
+#include <chrono>
+using fdapde::core::Element;
+using fdapde::core::Mesh;
+
+#include "utils/mesh_loader.h"
+#include "utils/utils.h"
+using fdapde::testing::almost_equal;
+using fdapde::testing::MESH_TYPE_LIST;
+using fdapde::testing::MeshLoader;
+using namespace fdapde::core;
+using namespace std;
 
 
 
@@ -281,4 +303,19 @@ TEST(IntersectionTest, Triangles_2)
 	Element<2, 3> el1(0, {1, 2, 3}, {p1, p2, p3}, {}, false);
 	Element<2, 3> el2(0, {1, 2, 3}, {p4, p5, p6}, {}, false);
 	EXPECT_TRUE(el1.intersection(el2));
+}
+
+// Triangoli con in comune due vertici
+TEST(IntersectionTest, Triangles_3)
+{
+	Eigen::Vector3d p1(0.0, 0.0, 0.0);
+	Eigen::Vector3d p2(1.0, 0.0, 0.0);
+	Eigen::Vector3d p3(0.0, 1.0, 0.0);
+	Eigen::Vector3d p4(0.0, 0.0, 0.0);
+	Eigen::Vector3d p5(0.5, 0.5, 0.0);
+	Eigen::Vector3d p6(1.0, 1.0, 1.0);
+	Element<2, 3> el1(0, {1, 2, 3}, {p1, p2, p3}, {}, false);
+	Element<2, 3> el2(0, {1, 2, 3}, {p4, p5, p6}, {}, false);
+	EXPECT_FALSE(el1.intersection(el2));
+
 }

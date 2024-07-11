@@ -70,7 +70,7 @@ struct DataDispCost{
 					Nt += 1.;
 				else
 					Nt += 1./patch_size;
-				// assert(patch_size != 0);
+				assert(patch_size != 0);
 			}
 			disp_cost += (mean_qoi_ - Nt)*(mean_qoi_ - Nt);
 		}
@@ -135,6 +135,11 @@ struct DataDispCost{
 	{
 		double current_min = min_;
 		min_ = std::numeric_limits<double>::max();
+		if(current_min > threshold_*max_)
+		{
+			std::cout<<"current_min = "<<current_min<<", "<<"threshold_ = "<<threshold_<<", max_ = "<<max_<<std::endl;
+			return true;
+		}
 		return (current_min > threshold_*max_);
 	}
 

@@ -36,7 +36,7 @@ using namespace fdapde::core;
 using namespace std;
 
 
-/*
+
 TEST(simplification_test, surface)
 {
     using Clock = std::chrono::high_resolution_clock;
@@ -82,7 +82,7 @@ TEST(simplification_test, surface)
         elements(i, 0) = std::stoi(node_id1)-1;
         elements(i, 1) = std::stoi(node_id2)-1;
         elements(i, 2) = std::stoi(node_id3)-1;
-    }*/
+    }
     /*
     std::ifstream orig_elems_file("../../../meshes/simulation2_triangles.txt");
     std::ifstream orig_nodes_file("../../../meshes/simulation2_vertices.txt");
@@ -132,7 +132,7 @@ TEST(simplification_test, surface)
         elements(i, 1) = std::stoi(node_id2)-1;
         elements(i, 2) = std::stoi(node_id3)-1;
     }*/
-    /*
+    
     // Simplification simp(meshloader.mesh);
     DMatrix<int> boundary(n_nodes, 1);
     boundary.setZero();
@@ -161,11 +161,11 @@ TEST(simplification_test, surface)
     std::cout<<"nodi mesh: "<<n_nodes<<", numero di elementi: "<<n_elements<<"\nInserire il numero di nodi\n";
     unsigned target_nodes;
     std::cin>>target_nodes;
-    // std::array<double, 1> w = {0.5};
-    std::array<double, 3> w = {1./3., 1./3., 1./3.};
+    std::array<double, 1> w = {0.5};
+    // std::array<double, 3> w = {1./3., 1./3., 1./3.};
     auto start = Clock::now();
-    simp.simplify(target_nodes, w, geom_cost, data_disp_cost, data_dist_cost);
-    // simp.simplify(target_nodes, w, data_disp_cost);
+    // simp.simplify(target_nodes, w, geom_cost, data_disp_cost, data_dist_cost);
+    simp.simplify(target_nodes, w, data_disp_cost);
     auto end = Clock::now();
     auto elapsed = duration_cast<duration<double>>(end - start);
     std::cout<<"simplificazione finita. Tempo impiegato: "<<elapsed.count()<<"\n";
@@ -178,7 +178,7 @@ TEST(simplification_test, surface)
     file_data<<simp.get_data();
     file_nodes.close();
     file_data.close();
-    file_elems.close();*/
+    file_elems.close();
     /*
     Connections conns(mesh);
     unsigned facet_id = 150;
@@ -233,10 +233,11 @@ TEST(simplification_test, surface)
     auto active_elems = simp.active_elems();
     for(auto elem_id : active_elems)
         file_qoi<<data_disp_cost.qoi_[elem_id]<<std::endl;
-    file_qoi.close();
+    file_qoi.close();*/
 
-
-
+    // ======================
+    // CONTROLLO INTERSEZIONI
+    // ======================
     std::cout<<"check sull'intersezione tra elementi\n";
     unsigned intersezioni_trovate = 0;
     bool do_intersect = false;
@@ -262,8 +263,7 @@ TEST(simplification_test, surface)
     }
     if(do_intersect)
         std::cout<<"trovata intersezione\n";
-}*/
-
+}
 
 /*TEST(simplification_test, simplification_2D)
 {
@@ -449,11 +449,8 @@ TEST(simplification_test, simplification_2D)
     
 }*/
 
-// semplificazione in 2D prendendo le informazioni della mesh da file:
-// * nodes_file_name.txt
-// * elems_file_name.txt
-// * boundary_file_name.txt
-TEST(simplification_test, simplification_3D)
+// semplificazione in 3D di un cubo
+/*TEST(simplification_test, simplification_3D)
 {
     using Clock = std::chrono::high_resolution_clock;
     using std::chrono::duration;
@@ -587,64 +584,4 @@ TEST(simplification_test, simplification_3D)
     vtu << "</VTKFile>\n";
 
     vtu.close();
-    /*
-
-  ## insert vtk header
-  vtu %<<% '<?xml version="1.0"?>\n'
-  vtu %<<% '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">\n'
-  vtu %<<% "<UnstructuredGrid>\n"
-  vtu %<<% paste0('<Piece NumberOfPoints="', n_nodes, '" NumberOfCells="', n_elems, '">\n')
-  ## mesh nodes (vtk points)
-  vtu %<<% "<Points>\n"
-  vtu %<<% paste0('<DataArray type="Float64" Name="nodes" NumberOfComponents="', dim, '" format="ascii">\n')
-  write.table(mesh$nodes, file = vtu, append = T, row.names = F, col.names = F)
-  vtu %<<% "</DataArray>\n"
-  vtu %<<% "</Points>\n"
-  ## mesh elements (vtk cells)
-  vtu %<<% "<Cells>\n"
-  ## specifies the point connectivity. All the cells’ point lists are concatenated together.
-  vtu %<<% '<DataArray type="Int32" Name="connectivity" format="ascii">\n'
-  write.table(
-    format(mesh$elements - 1, scientific = F),
-    file = vtu, append = T, row.names = F, col.names = F, quote = F
-  )
-  vtu %<<% "</DataArray>\n"
-  ## specifies the offset into the connectivity array for the end of each cell
-  vtu %<<% '<DataArray type="Int32" Name="offsets" format="ascii">\n'
-  offset <- if (mesh$local_dim == 2) 3 else 4 ## number of points per element for triangular and tetrahedral meshes
-  write.table(
-    format(matrix(seq(offset, offset * n_elems, by = offset), nrow = 1, byrow = T), scientific = F),
-    file = vtu, append = T, row.names = F, col.names = F, quote = F
-  )
-  vtu %<<% "</DataArray>\n"
-  ## specifies the type of each cell
-  vtu %<<% '<DataArray type="Int32" Name="types" format="ascii">\n'
-  vtk_cell_type <- if (mesh$local_dim == 2) 5 else 10 ## vtk code for (surface) triangular and tetrahedral elements
-  write.table(
-    format(matrix(rep(vtk_cell_type, n_elems), nrow = 1, byrow = T), scientific = F),
-    file = vtu, append = T, row.names = F, col.names = F, quote = F
-  )
-  vtu %<<% "</DataArray>\n"
-  vtu %<<% "</Cells>\n"
-
-  if (!is.null(data)) {
-    nvdata <- ncol(data) ## number of signals to plot
-    vtu %<<% "<PointData>\n"
-    for (i in seq_len(nvdata)) {
-      vtu %<<% paste0('<DataArray type="Float64" Name="data', i, '" NumberOfComponents="1" format="ascii">\n')
-      write.table(matrix(data[, i], nrow = 1), file = vtu, append = T, row.names = F, col.names = F)
-      vtu %<<% "</DataArray>\n"
-    }
-    vtu %<<% "</PointData>\n"
-  }
-  ## footer
-  vtu %<<% "</Piece>\n"
-  vtu %<<% "</UnstructuredGrid>\n"
-  vtu %<<% "</VTKFile>\n"
-
-  ## close file
-  close(vtu)
-}
-    */
-
-}
+}*/
