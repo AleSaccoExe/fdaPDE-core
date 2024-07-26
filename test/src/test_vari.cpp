@@ -19,6 +19,104 @@ using fdapde::testing::MeshLoader;
 using namespace fdapde::core;
 using namespace std;
 
+
+Mesh<2, 3> read_inp(std::string file)
+{
+    std::ifstream mesh_file(file);
+    int n_nodes, n_elements;
+    std::string line;
+    getline(mesh_file, line);
+    std::string s_num_elem, s_num_ver, num_data;
+    std::istringstream ss(line);
+    ss>>n_nodes;
+    ss>>n_elements;
+    DMatrix<double> nodes(n_nodes, 3);
+    DMatrix<int> elements(n_elements, 3);
+    for(unsigned i = 0; i<n_nodes; ++i)
+    {
+        getline(mesh_file, line);
+        std::string x, y, z;
+        std::istringstream ss(line);
+        std::string useless;
+        ss>>useless;
+        ss>>x>>y>>z;
+        nodes(i, 0) = std::stod(x);
+        nodes(i, 1) = std::stod(y);
+        nodes(i, 2) = std::stod(z);
+    }
+    for(unsigned i = 0; i< n_elements; ++i)
+    {
+        getline(mesh_file, line);
+        std::string useless;
+        std::istringstream ss(line);
+        ss>>useless; ss>>useless; ss>>useless;
+        std::string node_id1, node_id2, node_id3;
+        ss>>node_id1>>node_id2>>node_id3;
+        elements(i, 0) = std::stoi(node_id1)-1;
+        elements(i, 1) = std::stoi(node_id2)-1;
+        elements(i, 2) = std::stoi(node_id3)-1;
+    }
+    DMatrix<int> boundary(n_nodes, 1);
+    boundary.setZero();
+    return Mesh<2, 3>(nodes, elements, boundary);
+
+}
+
+Simplification<2, 3> read_surface_mesh(std::string nodes_file, std::string elems_file, std::string data_file)
+{
+    std::ifstream orig_elems_file(elems_file);
+    std::ifstream orig_nodes_file(nodes_file);
+    std::ifstream orig_data_file(data_file);
+    unsigned n_elements = 0;
+    unsigned n_nodes = 0;
+    unsigned n_data = 0;
+    std::string line;
+    while(getline(orig_nodes_file, line)) {++n_nodes;}
+    while(getline(orig_elems_file, line)) {++n_elements;}
+    while(getline(orig_data_file, line)) {++n_data;}
+    DMatrix<int> elements(n_elements, 3);
+    DMatrix<double> nodes(n_nodes, 3);
+    DMatrix<double> data(n_data, 3);
+    orig_elems_file.clear();
+    orig_nodes_file.clear();
+    orig_data_file.clear();
+    orig_nodes_file.seekg(0);
+    orig_elems_file.seekg(0);
+    orig_data_file.seekg(0);
+    for (int i = 0; i < n_data; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            orig_data_file >> data(i, j);
+        }
+    }
+    for(unsigned i = 0; i<n_nodes; ++i)
+    {
+        getline(orig_nodes_file, line);
+        std::string x, y, z;
+        std::istringstream ss(line);
+        std::string useless;
+        ss>>useless;
+        ss>>x>>y>>z;
+        nodes(i, 0) = std::stod(x);
+        nodes(i, 1) = std::stod(y);
+        nodes(i, 2) = std::stod(z);
+    }
+    for(unsigned i = 0; i< n_elements; ++i)
+    {
+        getline(orig_elems_file, line);
+        std::string useless;
+        std::istringstream ss(line);
+        ss>>useless;
+        std::string node_id1, node_id2, node_id3;
+        ss>>node_id1>>node_id2>>node_id3;
+        elements(i, 0) = std::stoi(node_id1)-1;
+        elements(i, 1) = std::stoi(node_id2)-1;
+        elements(i, 2) = std::stoi(node_id3)-1;
+    }
+    DMatrix<int> boundary(n_nodes, 1);
+    boundary.setZero();
+    return Simplification(Mesh<2, 3>(nodes, elements, boundary), data);
+}
+
 TEST(test_vari, test_1)
 {
     // mesh quadrata:
@@ -116,9 +214,100 @@ TEST(test_vari, test_1)
     }
     // test su simplification
     {
-        
+        Simplification<2, 3> simp(mesh);
+           
     }
-
-
     		 
+}
+
+
+TEST(simplification_test, sphere_onlygeo)
+{
+    Mesh<2, 3> sphere_mesh = read_inp("../../../meshes/sfera.inp");
+    GeomCost geom_cost;
+    Simplification simp(sphere_mesh);
+    std::cout<<"Starting simplification of the sphere with only geometric cost\n";
+    std::cout<<"Initial nodes: 5040, final nodes: 2500\n";
+    simp.simplify(2500, geom_cost);
+    std::cout<<"Simplification completed\n";
+}
+
+TEST(simplification_test, sphere_datageo)
+{
+    Mesh<2, 3> sphere_mesh = read_inp("../../../meshes/sfera.inp");
+    GeomCost geom_cost;
+    DataDispCost<2, 3> data_disp_cost;
+    DataDistCost data_dist_cost;
+    Simplification simp(sphere_mesh);
+    std::cout<<"Starting simplification of the sphere with geometric, data distance and data distribution costs\n";
+    std::cout<<"Initial nodes: 5040, final nodes: 2500\n";
+    std::array<double, 3> w = {1./3., 1./3., 1./3.};
+    simp.simplify(2500, w,geom_cost, data_dist_cost, data_disp_cost);
+    std::cout<<"Simplification completed\n";
+}
+
+TEST(simplification_test, pawn_onlygeo)
+{
+    Mesh<2, 3> pawn_mesh = read_inp("../../../meshes/pawn.inp");
+    GeomCost geom_cost;
+    Simplification simp(pawn_mesh);
+    std::cout<<"Starting simplification of the pawn with only geometric cost\n";
+    std::cout<<"Initial nodes: 2522, final nodes: 1500\n";
+    simp.simplify(1500, geom_cost);
+    std::cout<<"Simplification completed\n";
+}
+
+TEST(simplification_test, pawn_datageo)
+{
+    Mesh<2, 3> pawn_mesh = read_inp("../../../meshes/pawn.inp");
+    GeomCost geom_cost;
+    DataDispCost<2, 3> data_disp_cost;
+    DataDistCost data_dist_cost;
+    Simplification simp(pawn_mesh);
+    std::cout<<"Starting simplification of the pawn with geometric, data distance and data distribution costs\n";
+    std::cout<<"Initial nodes: 2522, final nodes: 1500\n";
+    std::array<double, 3> w = {1./3., 1./3., 1./3.};
+    simp.simplify(1500, w,geom_cost, data_dist_cost, data_disp_cost);
+    std::cout<<"Simplification completed\n";
+}
+
+TEST(simplification_test, torus_onlygeo)
+{
+    Mesh<2, 3> pawn_mesh = read_inp("../../../meshes/toro.inp");
+    GeomCost geom_cost;
+    Simplification simp(pawn_mesh);
+    std::cout<<"\nStarting simplification of the pawn with only geometric cost\n";
+    std::cout<<"Initial nodes: 7496, final nodes: 3500\n";
+    simp.simplify(3500, geom_cost);
+    std::cout<<"Simplification completed\n";
+}
+
+TEST(simplification_test, torus_sharp)
+{
+    Mesh<2, 3> pawn_mesh = read_inp("../../../meshes/toro.inp");
+    GeomCost geom_cost;
+    DataDispCost<2, 3> data_disp_cost;
+    DataDistCost data_dist_cost;
+    SharpElemsCost<2, 3> sharp_elems_cost;
+    Simplification simp(pawn_mesh);
+    std::cout<<"\nStarting simplification of the pawn with geometric, data distance, data distribution costs and cost on sharp elements\n";
+    std::cout<<"Initial nodes: 7496, final nodes: 3500\n";
+    std::array<double, 4> w = {0.3, 0.3, 0.3, 0.1};
+    simp.simplify(1500, w,geom_cost, data_dist_cost, data_disp_cost, sharp_elems_cost);
+    std::cout<<"Simplification completed\n";
+}
+
+TEST(simplification_test, sphere_with_irregular_data)
+{
+    Simplification<2, 3> simp = read_surface_mesh("../../../meshes/simulation2_vertices.txt",
+                                                  "../../../meshes/simulation2_triangles.txt",
+                                                  "../../../meshes/simulation2_2500data.txt");
+    GeomCost geom_cost;
+    DataDispCost<2, 3> data_disp_cost;
+    DataDistCost data_dist_cost;
+    std::cout<<"\nStarting simplification of the sphere with data scattered irregularly with geometric, data distance and data distribution costs\n";
+    std::cout<<"Initial nodes: 2522, final nodes: 1500\n";
+    std::array<double, 3> w = {1./3., 1./3., 1./3.};
+    simp.simplify(1500, w,geom_cost, data_dist_cost, data_disp_cost);
+    std::cout<<"Simplification completed\n";
 }

@@ -49,7 +49,7 @@ TEST(simplification_test, surface)
     DataDispCost<2, 3> data_disp_cost;
     
     // MeshLoader<Mesh<2, 3>> meshloader("surface");
-    std::ifstream mesh_file("../../../meshes/pawn.inp");
+    std::ifstream mesh_file("../../../meshes/sfera.inp");
     int n_nodes, n_elements;
     std::string line;
     getline(mesh_file, line);
@@ -83,8 +83,8 @@ TEST(simplification_test, surface)
         elements(i, 1) = std::stoi(node_id2)-1;
         elements(i, 2) = std::stoi(node_id3)-1;
     }
-    /*
-    std::ifstream orig_elems_file("../../../meshes/simulation2_triangles.txt");
+    
+    /*std::ifstream orig_elems_file("../../../meshes/simulation2_triangles.txt");
     std::ifstream orig_nodes_file("../../../meshes/simulation2_vertices.txt");
     std::ifstream orig_data_file("../../../meshes/simulation2_2500data.txt");
     unsigned n_elements = 0;
@@ -94,6 +94,7 @@ TEST(simplification_test, surface)
     while(getline(orig_nodes_file, line)) {++n_nodes;}
     while(getline(orig_elems_file, line)) {++n_elements;}
     while(getline(orig_data_file, line)) {++n_data;}
+    std::cout<<"numero di dati:\n"<<n_data<<"\n";
     DMatrix<int> elements(n_elements, 3);
     DMatrix<double> nodes(n_nodes, 3);
     DMatrix<double> data(n_data, 3);
@@ -161,11 +162,13 @@ TEST(simplification_test, surface)
     std::cout<<"nodi mesh: "<<n_nodes<<", numero di elementi: "<<n_elements<<"\nInserire il numero di nodi\n";
     unsigned target_nodes;
     std::cin>>target_nodes;
-    std::array<double, 1> w = {0.5};
-    // std::array<double, 3> w = {1./3., 1./3., 1./3.};
+    // std::array<double, 1> w = {0.5};
+    std::array<double, 3> w = {1./3., 1./3., 1./3.};
+    // std::array<double, 4> w = {0.3, 0.3, 0.3, 0.1};
+    // std::array<double, 3> w = {1./3., 0., 0.};
     auto start = Clock::now();
-    // simp.simplify(target_nodes, w, geom_cost, data_disp_cost, data_dist_cost);
-    simp.simplify(target_nodes, w, data_disp_cost);
+    simp.simplify(target_nodes, w, geom_cost, data_disp_cost, data_dist_cost);
+    // simp.simplify(target_nodes, geom_cost);
     auto end = Clock::now();
     auto elapsed = duration_cast<duration<double>>(end - start);
     std::cout<<"simplificazione finita. Tempo impiegato: "<<elapsed.count()<<"\n";
@@ -179,8 +182,8 @@ TEST(simplification_test, surface)
     file_nodes.close();
     file_data.close();
     file_elems.close();
-    /*
-    Connections conns(mesh);
+    
+    /*Connections conns(mesh);
     unsigned facet_id = 150;
     std::array<int, 2> facet = mesh.facet(facet_id).node_ids();
     auto elems_to_modify_ids = conns.elems_modified_in_collapse(facet);
@@ -209,7 +212,7 @@ TEST(simplification_test, surface)
     */
 
 
-    /*
+    
     std::cout<<"scrivere il nome del file di qoi e dist\n";
     std::string nome_file;
     std::cin>>nome_file;
@@ -233,7 +236,7 @@ TEST(simplification_test, surface)
     auto active_elems = simp.active_elems();
     for(auto elem_id : active_elems)
         file_qoi<<data_disp_cost.qoi_[elem_id]<<std::endl;
-    file_qoi.close();*/
+    file_qoi.close();
 
     // ======================
     // CONTROLLO INTERSEZIONI
@@ -245,9 +248,10 @@ TEST(simplification_test, surface)
         for(unsigned j = 0; j < mesh_simp.n_elements(); ++j)
             if(i!=j)
             {
-                do_intersect = do_intersect || mesh_simp.element(i).intersection(mesh_simp.element(j));
+                do_intersect =  mesh_simp.element(i).intersection(mesh_simp.element(j));
                 if(do_intersect)
                 {
+                    std::cout<<"\n";
                     std::cout<<"el: "<<i<<std::endl;
                     auto node_ids1 = mesh_simp.element(i).node_ids();
                     std::cout<<node_ids1[0]<<" "<<node_ids1[1]<<" "<<node_ids1[2]<<"\n";
@@ -255,6 +259,7 @@ TEST(simplification_test, surface)
                     auto node_ids2 = mesh_simp.element(j).node_ids();
                     std::cout<<node_ids2[0]<<" "<<node_ids2[1]<<" "<<node_ids2[2]<<"\n";
                     //break;
+                    std::cout<<"\n";
                     intersezioni_trovate++;
                 }
             }
@@ -283,8 +288,10 @@ TEST(simplification_test, surface)
     unsigned target_nodes;
     std::cin>>target_nodes;
     std::array<double, 2> w = {0.9, 0.1};
+    // std::array<double, 1> w = {0.9};
     auto start = Clock::now();
     simp.simplify(target_nodes, w, data_disp_cost, sharp_elems_cost);
+    // simp.simplify(target_nodes, w, data_disp_cost);
     auto end = Clock::now();
     auto elapsed = duration_cast<duration<double>>(end - start);
     std::cout<<"simplificazione finita. Tempo impiegato: "<<elapsed.count()<<"\n";
@@ -298,6 +305,16 @@ TEST(simplification_test, surface)
     file_nodes.close();
     file_data.close();
     file_elems.close();
+
+
+    std::cout<<"scrivere il nome del file della qoi\n";
+    std::string nome_file;
+    std::cin>>nome_file;
+    std::ofstream file_qoi("../../../meshes/dati/2D/"+nome_file+".txt");
+    auto active_elems = simp.active_elems();
+    for(auto elem_id : active_elems)
+        file_qoi<<data_disp_cost.qoi_[elem_id]<<std::endl;
+    file_qoi.close();
 }*/
 
 /*
@@ -372,8 +389,8 @@ TEST(simplification_test, simplification_3D)
 // * nodes_file_name.txt
 // * elems_file_name.txt
 // * boundary_file_name.txt
-/*
-TEST(simplification_test, simplification_2D)
+
+/*TEST(simplification_test, simplification_2D)
 {
     using Clock = std::chrono::high_resolution_clock;
     using std::chrono::duration;
@@ -430,9 +447,11 @@ TEST(simplification_test, simplification_2D)
     std::cout<<"nodi mesh: "<<n_nodes<<", numero di elementi: "<<n_elements<<"\nInserire il numero di nodi\n";
     unsigned target_nodes;
     std::cin>>target_nodes;
-    std::array<double, 2> w = {0.99, 0.01};
+    // std::array<double, 2> w = {0.99, 0.01};
+    std::array<double, 2> w = {1};
     auto start = Clock::now();
-    simp.simplify(target_nodes, w, data_disp_cost, sharp_elems_cost);
+    // simp.simplify(target_nodes, w, data_disp_cost, sharp_elems_cost);
+    simp.simplify(target_nodes, w, data_disp_cost);
     auto end = Clock::now();
     auto elapsed = duration_cast<duration<double>>(end - start);
     std::cout<<"simplificazione finita. Tempo impiegato: "<<elapsed.count()<<"\n";
@@ -506,9 +525,9 @@ TEST(simplification_test, simplification_2D)
     std::cout<<"nodi mesh: "<<n_nodes<<", numero di elementi: "<<n_elements<<"\nInserire il numero di nodi\n";
     unsigned target_nodes;
     std::cin>>target_nodes;
-    std::array<double, 1> w = {1.0};
+    // std::array<double, 1> w = {1.0};
     auto start = Clock::now();
-    simp.simplify(target_nodes, w, data_disp_cost);
+    simp.simplify(target_nodes, data_disp_cost);
     auto end = Clock::now();
     auto elapsed = duration_cast<duration<double>>(end - start);
     std::cout<<"simplificazione finita. Tempo impiegato: "<<elapsed.count()<<"\n";
@@ -584,4 +603,14 @@ TEST(simplification_test, simplification_2D)
     vtu << "</VTKFile>\n";
 
     vtu.close();
+
+    std::cout<<"scrivere il nome del file della qoi\n";
+    std::string nome_file;
+    std::cin>>nome_file;
+    std::ofstream file_qoi("../../../meshes/dati/3D/"+nome_file+".txt");
+    auto active_elems = simp.active_elems();
+    for(auto elem_id : active_elems)
+        file_qoi<<data_disp_cost.qoi_[elem_id]<<std::endl;
+    file_qoi.close();
+    std::cout<<"numero totale di elementi: "<<active_elems.size()<<"\n";
 }*/
