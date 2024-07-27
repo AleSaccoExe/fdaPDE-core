@@ -19,6 +19,12 @@ using fdapde::testing::MeshLoader;
 using namespace fdapde::core;
 using namespace std;
 
+#define RESET   "\033[0m"
+#define RED     "\033[31m"
+#define GREEN   "\033[32m"
+#define YELLOW  "\033[33m"
+#define BLUE    "\033[34m"
+
 
 Mesh<2, 3> read_inp(std::string file)
 {
@@ -226,10 +232,10 @@ TEST(simplification_test, sphere_onlygeo)
     Mesh<2, 3> sphere_mesh = read_inp("../../../meshes/sfera.inp");
     GeomCost geom_cost;
     Simplification simp(sphere_mesh);
-    std::cout<<"Starting simplification of the sphere with only geometric cost\n";
+    std::cout<<BLUE<<"\nStarting simplification of the sphere with only geometric cost\n"<<RESET;
     std::cout<<"Initial nodes: 5040, final nodes: 2500\n";
     simp.simplify(2500, geom_cost);
-    std::cout<<"Simplification completed\n";
+    std::cout<<BLUE<<"Simplification completed\n"<<RESET;
 }
 
 TEST(simplification_test, sphere_datageo)
@@ -239,11 +245,11 @@ TEST(simplification_test, sphere_datageo)
     DataDispCost<2, 3> data_disp_cost;
     DataDistCost data_dist_cost;
     Simplification simp(sphere_mesh);
-    std::cout<<"Starting simplification of the sphere with geometric, data distance and data distribution costs\n";
+    std::cout<<BLUE<<"\nStarting simplification of the sphere with geometric, data distance and data distribution costs\n"<<RESET;
     std::cout<<"Initial nodes: 5040, final nodes: 2500\n";
     std::array<double, 3> w = {1./3., 1./3., 1./3.};
     simp.simplify(2500, w,geom_cost, data_dist_cost, data_disp_cost);
-    std::cout<<"Simplification completed\n";
+    std::cout<<BLUE<<"Simplification completed\n"<<RESET;
 }
 
 TEST(simplification_test, pawn_onlygeo)
@@ -251,10 +257,10 @@ TEST(simplification_test, pawn_onlygeo)
     Mesh<2, 3> pawn_mesh = read_inp("../../../meshes/pawn.inp");
     GeomCost geom_cost;
     Simplification simp(pawn_mesh);
-    std::cout<<"Starting simplification of the pawn with only geometric cost\n";
+    std::cout<<BLUE<<"\nStarting simplification of the pawn with only geometric cost\n"<<RESET;
     std::cout<<"Initial nodes: 2522, final nodes: 1500\n";
     simp.simplify(1500, geom_cost);
-    std::cout<<"Simplification completed\n";
+    std::cout<<BLUE<<"Simplification completed\n"<<RESET;
 }
 
 TEST(simplification_test, pawn_datageo)
@@ -264,11 +270,11 @@ TEST(simplification_test, pawn_datageo)
     DataDispCost<2, 3> data_disp_cost;
     DataDistCost data_dist_cost;
     Simplification simp(pawn_mesh);
-    std::cout<<"Starting simplification of the pawn with geometric, data distance and data distribution costs\n";
+    std::cout<<BLUE<<"\nStarting simplification of the pawn with geometric, data distance and data distribution costs\n"<<RESET;
     std::cout<<"Initial nodes: 2522, final nodes: 1500\n";
     std::array<double, 3> w = {1./3., 1./3., 1./3.};
     simp.simplify(1500, w,geom_cost, data_dist_cost, data_disp_cost);
-    std::cout<<"Simplification completed\n";
+    std::cout<<BLUE<<"Simplification completed\n"<<RESET;
 }
 
 TEST(simplification_test, torus_onlygeo)
@@ -276,10 +282,10 @@ TEST(simplification_test, torus_onlygeo)
     Mesh<2, 3> pawn_mesh = read_inp("../../../meshes/toro.inp");
     GeomCost geom_cost;
     Simplification simp(pawn_mesh);
-    std::cout<<"\nStarting simplification of the pawn with only geometric cost\n";
+    std::cout<<BLUE<<"\nStarting simplification of the pawn with only geometric cost\n"<<RESET;
     std::cout<<"Initial nodes: 7496, final nodes: 3500\n";
     simp.simplify(3500, geom_cost);
-    std::cout<<"Simplification completed\n";
+    std::cout<<BLUE<<"Simplification completed\n"<<RESET;
 }
 
 TEST(simplification_test, torus_sharp)
@@ -290,11 +296,11 @@ TEST(simplification_test, torus_sharp)
     DataDistCost data_dist_cost;
     SharpElemsCost<2, 3> sharp_elems_cost;
     Simplification simp(pawn_mesh);
-    std::cout<<"\nStarting simplification of the pawn with geometric, data distance, data distribution costs and cost on sharp elements\n";
+    std::cout<<BLUE<<"\nStarting simplification of the torus with geometric, data distance, data distribution costs and cost on sharp elements\n"<<RESET;
     std::cout<<"Initial nodes: 7496, final nodes: 3500\n";
     std::array<double, 4> w = {0.3, 0.3, 0.3, 0.1};
     simp.simplify(1500, w,geom_cost, data_dist_cost, data_disp_cost, sharp_elems_cost);
-    std::cout<<"Simplification completed\n";
+    std::cout<<BLUE<<"Simplification completed\n"<<RESET;
 }
 
 TEST(simplification_test, sphere_with_irregular_data)
@@ -305,9 +311,9 @@ TEST(simplification_test, sphere_with_irregular_data)
     GeomCost geom_cost;
     DataDispCost<2, 3> data_disp_cost;
     DataDistCost data_dist_cost;
-    std::cout<<"\nStarting simplification of the sphere with data scattered irregularly with geometric, data distance and data distribution costs\n";
+    std::cout<<BLUE<<"\nStarting simplification of the sphere with data scattered irregularly with geometric, data distance and data distribution costs\n"<<RESET;
     std::cout<<"Initial nodes: 2522, final nodes: 1500\n";
     std::array<double, 3> w = {1./3., 1./3., 1./3.};
     simp.simplify(1500, w,geom_cost, data_dist_cost, data_disp_cost);
-    std::cout<<"Simplification completed\n";
+    std::cout<<BLUE<<"Simplification completed\n"<<RESET;
 }
