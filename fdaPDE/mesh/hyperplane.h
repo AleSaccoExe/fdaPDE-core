@@ -70,6 +70,7 @@ template <int M, int N> class HyperPlane {
         SVector<N> l1 = u.cross(v);
         SVector<N> l2 = v.cross(w);
         normal_ = l1.cross(l2);
+        normal_/=normal_.norm();
         offset_ = -coords.col(0).dot(normal_);
     }
     // constructors from matrix coordinates

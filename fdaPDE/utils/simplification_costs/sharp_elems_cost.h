@@ -27,13 +27,12 @@ double circumradius(const std::array<SVector<N>, 3> & points)
 
 }
 
+// compute the max cos in a triangle identified by the coordinates of 
+// its vertices
 template<int N>
-double get_max_cos(const std::array<SVector<N>, 3> & points)
+double get_max_cos(const SVector<N>& A, const SVector<N>& B, const SVector<N>& C) 
 {
 	double max = 0.0;
-	SVector<N> A = points[0];
-	SVector<N> B = points[1];
-	SVector<N> C = points[2];
 	double cos1 = std::abs((B-A).dot(C-A))/( (B-A).norm()*(C-A).norm() );
 	if(max < cos1) {max = cos1;}
 	double cos2 = std::abs((C-B).dot(A-B))/( (C-B).norm()*(A-B).norm() );
@@ -61,43 +60,41 @@ struct SharpElemsCost{
 					  const std::vector<Element<M, N>> & elems_modified, const SVector<N> & v, 
 					  const std::unordered_set<unsigned> & data_ids ) const
 	{
-		/*
-		double max_ratio = 0.0;
-		for(const auto & elem : elems_modified)
-		{
-			double radius = circumradius(elem.coords());
-			const auto & coords = elem.coords();
-			double min_edge = std::numeric_limits<double>::max();
-			for(unsigned i = 0; i < M+1; ++i)
-				for(unsigned j = i+1; j < M+1; ++j)
-				{
-					double edge_length = (coords[i]-coords[j]).norm();
-					if(edge_length < min_edge) {min_edge = edge_length;}
-				}
-			double ratio = radius/min_edge;
-			if(ratio > max_ratio) {max_ratio = ratio;}
-		}
-		return max_ratio;
-		*/
+		// all triangles in the element
 		double max_cos1 = 0.0;
+		// loop on elements to delete
 		for(const auto & elem : elems_to_delete)
 		{
-			double cos = get_max_cos(elem.coords());
-			if(cos > max_cos1) {max_cos1 = cos;}
+			const auto& coords = elem.coords();
+			for(unsigned i = 0; i < ct_binomial_coefficient(M+1, 3); ++i){
+				double cos = get_max_cos(coords[triangles(i, 0)], coords[triangles(i, 1)], coords[triangles(i, 2)]);
+			// double cos = get_max_cos(elem.coords());
+				if(cos > max_cos1) {max_cos1 = cos;}
+			}
 		}
+		// loop on elements to modify
 		for(const auto & elem : elems_to_modify)
 		{
-			double cos = get_max_cos(elem.coords());
-			if(cos > max_cos1) {max_cos1 = cos;}
+			const auto& coords = elem.coords();
+			for(unsigned i = 0; i < ct_binomial_coefficient(M+1, 3); ++i){
+				double cos = get_max_cos(coords[triangles(i, 0)], coords[triangles(i, 1)], coords[triangles(i, 2)]);
+			// double cos = get_max_cos(elem.coords());
+				if(cos > max_cos1) {max_cos1 = cos;}
+			}
 		}
 		double max_cos2 = 0.0;
+		// loop on elements modified
 		for(const auto & elem : elems_modified)
 		{
-			double cos = get_max_cos(elem.coords());
-			if(cos > max_cos2) {max_cos2 = cos;}
+			const auto& coords = elem.coords();
+			for(unsigned i = 0; i < ct_binomial_coefficient(M+1, 3); ++i){
+				double cos = get_max_cos(coords[triangles(i, 0)], coords[triangles(i, 1)], coords[triangles(i, 2)]);
+			// double cos = get_max_cos(elem.coords());
+				if(cos > max_cos2) {max_cos2 = cos;}
+			}
 		}
 		double csi = (1.-max_cos1)*(1.-max_cos1)/( (1.-max_cos2)*(1.-max_cos2) );
-		return std::tanh(csi) - 1./csi;
+		return 1./std::tanh(csi) - 1./csi;
 	}
 	
 	void setup(Simplification<M, N> * p_simp){}
@@ -123,6 +120,9 @@ struct SharpElemsCost{
 	bool check_update() {return false;}
 	double max_ = 0.0;
 	double min_ = std::numeric_limits<double>::max();
+
+	SMatrix<ct_binomial_coefficient(M+1, 3), 3, int> triangles = combinations<3, M+1>();
+
 
 };
 

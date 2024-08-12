@@ -26,6 +26,51 @@ using namespace std;
 #define BLUE    "\033[34m"
 
 
+Mesh<3,3> read_3D(std::string file_elems, std::string file_nodes, std::string file_boundary)
+{
+    std::ifstream orig_elems_file(file_elems);
+    std::ifstream orig_nodes_file(file_nodes);
+    std::ifstream orig_boundary_file(file_boundary);
+    unsigned n_elements = 0;
+    unsigned n_nodes = 0;
+    std::string line;
+    while(getline(orig_nodes_file, line)) {++n_nodes;}
+    while(getline(orig_elems_file, line)) {++n_elements;}
+    DMatrix<int> elements(n_elements, 4);
+    DMatrix<double> nodes(n_nodes, 3);
+    DMatrix<int> boundary(n_nodes, 1);
+
+    orig_elems_file.clear();
+    orig_nodes_file.clear();
+    orig_nodes_file.seekg(0);
+    orig_elems_file.seekg(0);
+    for(unsigned i = 0; i<n_nodes; ++i)
+    {
+        std::string boundary_line;
+        getline(orig_nodes_file, line);
+        getline(orig_boundary_file, boundary_line);
+        std::string x, y, z;
+        std::istringstream ss(line);
+        ss>>x>>y>>z;
+        nodes(i, 0) = std::stod(x);
+        nodes(i, 1) = std::stod(y);
+        nodes(i, 2) = std::stod(z);
+        boundary(i, 0) = std::stoi(boundary_line);
+    }
+    for(unsigned i = 0; i< n_elements; ++i)
+    {
+        getline(orig_elems_file, line);
+        std::istringstream ss(line);
+        std::string node_id1, node_id2, node_id3, node_id4;
+        ss>>node_id1>>node_id2>>node_id3>>node_id4;
+        elements(i, 0) = std::stoi(node_id1)-1;
+        elements(i, 1) = std::stoi(node_id2)-1;
+        elements(i, 2) = std::stoi(node_id3)-1;
+        elements(i, 3) = std::stoi(node_id4)-1;
+    }
+    Mesh<3, 3> mesh(nodes, elements, boundary);    
+}
+
 Mesh<2, 3> read_inp(std::string file)
 {
     std::ifstream mesh_file(file);
@@ -218,16 +263,11 @@ TEST(test_vari, test_1)
         std::cout<<"\nProjected datum:\n";
         std::cout<<p_B<<"\n";
     }
-    // test su simplification
-    {
-        Simplification<2, 3> simp(mesh);
-           
-    }
     		 
 }
 
 
-TEST(simplification_test, sphere_onlygeo)
+/*TEST(simplification_test, sphere_onlygeo)
 {
     Mesh<2, 3> sphere_mesh = read_inp("../../../meshes/sfera.inp");
     GeomCost geom_cost;
@@ -312,8 +352,32 @@ TEST(simplification_test, sphere_with_irregular_data)
     DataDispCost<2, 3> data_disp_cost;
     DataDistCost data_dist_cost;
     std::cout<<BLUE<<"\nStarting simplification of the sphere with data scattered irregularly with geometric, data distance and data distribution costs\n"<<RESET;
-    std::cout<<"Initial nodes: 2522, final nodes: 1500\n";
+    std::cout<<"Initial nodes: 3097, final nodes: 2500\n";
     std::array<double, 3> w = {1./3., 1./3., 1./3.};
     simp.simplify(1500, w,geom_cost, data_dist_cost, data_disp_cost);
+    std::cout<<BLUE<<"Simplification completed\n"<<RESET;
+}*/
+
+TEST(simplification_test, simplification_2D)
+{
+    DataDispCost<2, 2> data_disp_cost;
+    MeshLoader<Mesh2D> CShaped("unit_square_64");
+    Simplification simp(CShaped.mesh);
+    std::cout<<BLUE<<"\nStarting simplification of the 2D square with data distribution costs\n"<<RESET;
+    std::cout<<"Initial nodes: 4225, final nodes: 3000\n";
+    simp.simplify(3000, w, data_disp_cost);
+    std::cout<<BLUE<<"Simplification completed\n"<<RESET;
+}
+
+TEST(simplification_test, simplification_3D)
+{
+    Mesh<3, 3> mesh_3D = read_3D("../../../meshes/meshes_3D/elems_cubo.txt", 
+                                 "../../../meshes/meshes_3D/nodes_cubo.txt",
+                                 "../../../meshes/meshes_3D/boundary_cubo.txt");
+    DataDispCost<3, 3> data_disp_cost;
+    Simplification simp(mesh_3D);
+    std::cout<<BLUE<<"\nStarting simplification of the 3D cube with data distribution costs\n"<<RESET;
+    std::cout<<"Initial nodes: 2091, final nodes: 1500\n";
+    simp.simplify(1500, data_disp_cost);
     std::cout<<BLUE<<"Simplification completed\n"<<RESET;
 }

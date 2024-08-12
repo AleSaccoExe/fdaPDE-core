@@ -9,6 +9,8 @@
 namespace fdapde{
 namespace core{
 
+// struct implementing the cost on data distribution
+
 template<int M, int N> 
 struct DataDispCost{
 	double operator()(const std::vector<Element<M, N>> & elems_to_modify, 
@@ -135,11 +137,7 @@ struct DataDispCost{
 	{
 		double current_min = min_;
 		min_ = std::numeric_limits<double>::max();
-		if(current_min > threshold_*max_)
-		{
-			std::cout<<"current_min = "<<current_min<<", "<<"threshold_ = "<<threshold_<<", max_ = "<<max_<<std::endl;
-			return true;
-		}
+		if(current_min > threshold_*max_) { return true; }
 		return (current_min > threshold_*max_);
 	}
 
@@ -153,7 +151,7 @@ struct DataDispCost{
 	Simplification<M, N> * p_simp_;
 	std::vector<double> qoi_;
 	unsigned num_elems_;
-	double threshold_ = 1.3;
+	double threshold_ = 1.5;
 };
 
 } // core

@@ -49,7 +49,7 @@ TEST(simplification_test, surface)
     DataDispCost<2, 3> data_disp_cost;
     
     // MeshLoader<Mesh<2, 3>> meshloader("surface");
-    std::ifstream mesh_file("../../../meshes/sfera.inp");
+    std::ifstream mesh_file("../../../meshsimplification/mesh/pawn.inp");
     int n_nodes, n_elements;
     std::string line;
     getline(mesh_file, line);
@@ -83,57 +83,7 @@ TEST(simplification_test, surface)
         elements(i, 1) = std::stoi(node_id2)-1;
         elements(i, 2) = std::stoi(node_id3)-1;
     }
-    
-    /*std::ifstream orig_elems_file("../../../meshes/simulation2_triangles.txt");
-    std::ifstream orig_nodes_file("../../../meshes/simulation2_vertices.txt");
-    std::ifstream orig_data_file("../../../meshes/simulation2_2500data.txt");
-    unsigned n_elements = 0;
-    unsigned n_nodes = 0;
-    unsigned n_data = 0;
-    std::string line;
-    while(getline(orig_nodes_file, line)) {++n_nodes;}
-    while(getline(orig_elems_file, line)) {++n_elements;}
-    while(getline(orig_data_file, line)) {++n_data;}
-    std::cout<<"numero di dati:\n"<<n_data<<"\n";
-    DMatrix<int> elements(n_elements, 3);
-    DMatrix<double> nodes(n_nodes, 3);
-    DMatrix<double> data(n_data, 3);
-    orig_elems_file.clear();
-    orig_nodes_file.clear();
-    orig_data_file.clear();
-    orig_nodes_file.seekg(0);
-    orig_elems_file.seekg(0);
-    orig_data_file.seekg(0);
-    for (int i = 0; i < n_data; ++i) {
-        for (int j = 0; j < 3; ++j) {
-            orig_data_file >> data(i, j);
-        }
-    }
-    for(unsigned i = 0; i<n_nodes; ++i)
-    {
-        getline(orig_nodes_file, line);
-        std::string x, y, z;
-        std::istringstream ss(line);
-        std::string useless;
-        ss>>useless;
-        ss>>x>>y>>z;
-        nodes(i, 0) = std::stod(x);
-        nodes(i, 1) = std::stod(y);
-        nodes(i, 2) = std::stod(z);
-    }
-    for(unsigned i = 0; i< n_elements; ++i)
-    {
-        getline(orig_elems_file, line);
-        std::string useless;
-        std::istringstream ss(line);
-        ss>>useless;
-        std::string node_id1, node_id2, node_id3;
-        ss>>node_id1>>node_id2>>node_id3;
-        elements(i, 0) = std::stoi(node_id1)-1;
-        elements(i, 1) = std::stoi(node_id2)-1;
-        elements(i, 2) = std::stoi(node_id3)-1;
-    }*/
-    
+
     // Simplification simp(meshloader.mesh);
     DMatrix<int> boundary(n_nodes, 1);
     boundary.setZero();
@@ -162,12 +112,12 @@ TEST(simplification_test, surface)
     std::cout<<"nodi mesh: "<<n_nodes<<", numero di elementi: "<<n_elements<<"\nInserire il numero di nodi\n";
     unsigned target_nodes;
     std::cin>>target_nodes;
-    // std::array<double, 1> w = {0.5};
     std::array<double, 3> w = {1./3., 1./3., 1./3.};
     // std::array<double, 4> w = {0.3, 0.3, 0.3, 0.1};
     // std::array<double, 3> w = {1./3., 0., 0.};
     auto start = Clock::now();
     simp.simplify(target_nodes, w, geom_cost, data_disp_cost, data_dist_cost);
+    // simp.set_check_intersections(true);
     // simp.simplify(target_nodes, geom_cost);
     auto end = Clock::now();
     auto elapsed = duration_cast<duration<double>>(end - start);
@@ -216,6 +166,23 @@ TEST(simplification_test, surface)
     std::cout<<"scrivere il nome del file di qoi e dist\n";
     std::string nome_file;
     std::cin>>nome_file;
+
+
+    // ================
+    // SCRITTURA ANGOLI
+    // ================
+    std::ofstream file_angles("../../../meshes/angles_"+nome_file+".txt");
+    for(unsigned id_elem = 0; id_elem < mesh_simp.n_elements(); ++id_elem)
+    {
+        SVector<3> A = mesh_simp.element(id_elem).coords()[0];
+        SVector<3> B = mesh_simp.element(id_elem).coords()[1];
+        SVector<3> C = mesh_simp.element(id_elem).coords()[2];
+        double ABC = std::acos(  (A-B).dot(C-B)/( (B-A).norm()*(B-C).norm() )  );
+        double BCA = std::acos(  (B-C).dot(A-C)/( (B-C).norm()*(A-C).norm() )  );
+        double CAB = std::acos(  (C-A).dot(B-A)/( (C-A).norm()*(B-A).norm() )  );
+        file_angles<<ABC<<std::endl<<BCA<<std::endl<<CAB<<std::endl;
+    }
+    file_angles.close();
 
     std::ofstream file_dist("../../../meshes/dist_"+nome_file+".txt");
     // viene stampata la distanza dei dati

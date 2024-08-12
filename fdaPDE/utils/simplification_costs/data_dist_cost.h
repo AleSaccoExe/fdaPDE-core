@@ -14,12 +14,14 @@ struct DataDistCost{
 	double operator()(const std::vector<Element<2, 3>> & elems_to_modify, 
 					  const std::vector<Element<2, 3>> & elems_to_delete, 
 					  const std::vector<Element<2, 3>> & elems_modified, const SVector<3> & v, 
-					  const std::unordered_set<unsigned> & data_ids ) const
+					  const std::unordered_set<unsigned> & data_ids ) 
 	{
-		double ret = get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids)/max;
-		// std::cout<<"costo dist: "<<ret<<"\n";
+		double cost = get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids);
+		// std::cout<<"cost disp not normalized: "<<cost<<"\n";
+		if(cost < min_) {min_ = cost;}
+		double ret = cost/max_;
+		// std::cout<<"max disp: "<<max_<<"\n";
 		return ret;
-		return get_cost(elems_to_modify, elems_to_delete,elems_modified, v, data_ids)/max;
 	}
 
 	double get_cost(const std::vector<Element<2, 3>> & elems_to_modify, 
@@ -55,21 +57,29 @@ struct DataDistCost{
 
 	void update_max()
 	{
-		if(min_>max) {max = min_;}
+		if(min_>max_) {max_ = min_;}
 		min_ = std::numeric_limits<double>::max();
 	}
 
 	void update(const std::vector<Element<2, 3>> & elems_to_delete,
 				const std::vector<Element<2, 3>> & elems_modified) {}
 
-	bool check_update() {return false;}
-	void set_threshold(double new_threshold) {}
+	bool check_update()
+	{
+		// return false;
+		double current_min = min_;
+		min_ = std::numeric_limits<double>::max();
+		if(current_min > threshold_*max_) { return true; }
+		return (current_min > threshold_*max_);
+	}
+	void set_threshold(double new_threshold) {threshold_ = new_threshold;}
 
 	// Contiene le posizioni iniziali di tutti i dati
 	DMatrix<double> data_;
 	Simplification<2, 3>* p_simp_;
+	double threshold_ = 1.5;
 	double min_ = std::numeric_limits<double>::max();
-	double max = 0.0;
+	double max_ = 0.0;
 
 };
 

@@ -91,8 +91,6 @@ template <int M, int N> class Element {
     // AGGIUNTE MIE 
     // ===========>
     bool intersection(const Element<M, N> & other_el) const;
-    // il metodo trova il nodo dell'elemento in facet[1:end] e lo sostituisce con l'id facet[0]
-    void find_and_change_node(const std::array<int, M> & facet);
     // hyperplane passing throught this element
     HyperPlane<M, N> hyperplane() const;
     // ================>
@@ -277,16 +275,7 @@ bool Element<2, 3>::intersection(const Element<2, 3>& other_el) const
         // or they do in a conformal way
         return false;
     }
-template<int M, int N>
-void Element<M, N>::find_and_change_node(const std::array<int, M> & facet)
-{
-    for(int i = 0; i < n_vertices; ++i)
-        for(int j = 1; j < M; ++j)
-            if(facet[j] == node_ids_[i]){
-                node_ids_[i] = facet[0];
-                return;
-            }   
-}
+
 template<>
 HyperPlane<2, 3> Element<2, 3>::hyperplane() const
 {
