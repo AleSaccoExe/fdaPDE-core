@@ -3,7 +3,9 @@
 
 #include "../../mesh/element.h"
 #include "../symbols.h"
+#include "CostObjBase.h"
 #include <cmath>
+#include <iostream>
 
 namespace fdapde{
 namespace core{
@@ -44,7 +46,7 @@ double get_max_cos(const SVector<N>& A, const SVector<N>& B, const SVector<N>& C
 }
 
 
-template<int M, int N>
+/*template<int M, int N>
 struct SharpElemsCost{
 	double operator()(const std::vector<Element<M, N>> & elems_to_modify, 
 					  const std::vector<Element<M, N>> & elems_to_delete, 
@@ -122,6 +124,71 @@ struct SharpElemsCost{
 	double min_ = std::numeric_limits<double>::max();
 
 	SMatrix<ct_binomial_coefficient(M+1, 3), 3, int> triangles = combinations<3, M+1>();
+};*/
+
+template<int M, int N>
+class SharpElemsCost: public CostObjBase<M, N, SharpElemsCost<M, N> >{
+private:
+	SMatrix<ct_binomial_coefficient(M+1, 3), 3, int> triangles = combinations<3, M+1>();
+public:
+	// some methods have to be empty since no normalization is needed
+	void update_max() {}
+	template<typename... UpdateArgs>
+	void update_min(UpdateArgs&&... update_args) {}
+	// rewrite the operetor() with no ormalization
+
+	template<typename... Costargs>
+	double operator()(CostArgs&&... cost_args)
+	{
+		return get_cost(std::forward<ostArgs>(cost_args)...);
+	}
+	// since normalization is not needed, check_update always returns false
+	bool check_update() {return false;}
+
+	// method get_cost
+	double get_cost(const std::vector<Element<M, N>> & elems_to_modify, 
+					  const std::vector<Element<M, N>> & elems_to_delete, 
+					  const std::vector<Element<M, N>> & elems_modified, const SVector<N> & v, 
+					  const std::unordered_set<unsigned> & data_ids ) const
+	{
+		// all triangles in the element
+		double max_cos1 = 0.0;
+		// loop on elements to delete
+		for(const auto & elem : elems_to_delete)
+		{
+			const auto& coords = elem.coords();
+			for(unsigned i = 0; i < ct_binomial_coefficient(M+1, 3); ++i){
+				double cos = get_max_cos(coords[triangles(i, 0)], coords[triangles(i, 1)], coords[triangles(i, 2)]);
+			// double cos = get_max_cos(elem.coords());
+				if(cos > max_cos1) {max_cos1 = cos;}
+			}
+		}
+		// loop on elements to modify
+		for(const auto & elem : elems_to_modify)
+		{
+			const auto& coords = elem.coords();
+			for(unsigned i = 0; i < ct_binomial_coefficient(M+1, 3); ++i){
+				double cos = get_max_cos(coords[triangles(i, 0)], coords[triangles(i, 1)], coords[triangles(i, 2)]);
+			// double cos = get_max_cos(elem.coords());
+				if(cos > max_cos1) {max_cos1 = cos;}
+			}
+		}
+		double max_cos2 = 0.0;
+		// loop on elements modified
+		for(const auto & elem : elems_modified)
+		{
+			const auto& coords = elem.coords();
+			for(unsigned i = 0; i < ct_binomial_coefficient(M+1, 3); ++i){
+				double cos = get_max_cos(coords[triangles(i, 0)], coords[triangles(i, 1)], coords[triangles(i, 2)]);
+			// double cos = get_max_cos(elem.coords());
+				if(cos > max_cos2) {max_cos2 = cos;}
+			}
+		}
+		double csi = (1.-max_cos1)*(1.-max_cos1)/( (1.-max_cos2)*(1.-max_cos2) );
+		if(csi < DOUBLE_TOLERANCE) {return 0.;}
+		return 1./std::tanh(csi) - 1./csi;
+	}
+
 
 
 };

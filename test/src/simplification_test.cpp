@@ -47,6 +47,7 @@ TEST(simplification_test, surface)
     DataDistCost data_dist_cost;
     SharpElemsCost<2, 3> sharp_elems_cost;
     DataDispCost<2, 3> data_disp_cost;
+    DataEquiCost<2, 3> data_equi_cost;
     
     // MeshLoader<Mesh<2, 3>> meshloader("surface");
     std::ifstream mesh_file("../../../meshsimplification/mesh/pawn.inp");
@@ -112,11 +113,11 @@ TEST(simplification_test, surface)
     std::cout<<"nodi mesh: "<<n_nodes<<", numero di elementi: "<<n_elements<<"\nInserire il numero di nodi\n";
     unsigned target_nodes;
     std::cin>>target_nodes;
-    std::array<double, 3> w = {1./3., 1./3., 1./3.};
-    // std::array<double, 4> w = {0.3, 0.3, 0.3, 0.1};
+    // std::array<double, 3> w = {1./3., 1./3., 1./3.};
+    std::array<double, 4> w = {0.3, 0.3, 0.3, 0.1};
     // std::array<double, 3> w = {1./3., 0., 0.};
     auto start = Clock::now();
-    simp.simplify(target_nodes, w, geom_cost, data_disp_cost, data_dist_cost);
+    simp.simplify(target_nodes, w, geom_cost, data_equi_cost, data_dist_cost, sharp_elems_cost);
     // simp.set_check_intersections(true);
     // simp.simplify(target_nodes, geom_cost);
     auto end = Clock::now();
