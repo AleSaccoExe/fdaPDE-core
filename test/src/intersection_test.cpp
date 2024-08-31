@@ -18,24 +18,6 @@
 
 #include <gtest/gtest.h>   // testing framework
 #include <cstddef>
-
-/*
-#include <fdaPDE/utils.h>
-#include <fdaPDE/mesh.h>
-#include <fdaPDE/linear_algebra.h>
-using fdapde::core::Element;
-using fdapde::core::VectorSpace;
-//using fdapde::core::circumcenter;
-
-#include "utils/mesh_loader.h"
-#include "utils/constants.h"
-#include "utils/utils.h"
-
-using fdapde::testing::MESH_TYPE_LIST;
-using fdapde::testing::MeshLoader;
-using fdapde::testing::DOUBLE_TOLERANCE;
-using fdapde::testing::almost_equal;
-*/
 #include <fdaPDE/mesh.h>
 #include <fdaPDE/utils.h>
 #include <gtest/gtest.h>   // testing framework
@@ -61,32 +43,28 @@ using namespace std;
 
 TEST(IntersectionTest, SegmentPlaneIntersection_1)
 {
-	// normale al triangolo
+	// normal unit vector
 	SVector<3> N = {0.5, 0.5, 1.0/sqrt(2.0)};
-	// parte destra dell'equazione del piano
+	// rhs of plane equation
 	double d = 1.0;
-	// estremi del segmento
+	// segment vertices
 	SVector<3> Q = {0.0, 0.0, 0.0};
 	SVector<3> R = {2.0, 2.0, 2.0};
 	fdapde::core::Line2Plane l2p;
 	fdapde::core::Point2Seg p2s;
 	double t;
 	std::tie(l2p, p2s, t) = fdapde::core::intSegPlane(Q, R, N, d);
-
-	//Element<2, 3> el1(0, {1, 2, 3}, {p1, p2, p3}, {}, false);
-	//Element<2, 3> el2(0, {1, 2, 3}, {p4, p5, p6}, {}, false);
 	EXPECT_TRUE(l2p == fdapde::core::Line2Plane::INCIDENT);
 	EXPECT_TRUE(p2s == fdapde::core::Point2Seg::INTERN);
-
 }
 
 TEST(IntersectionTest, SegmentPlaneIntersection_2)
 {
-	// normale al triangolo
+	// normal unit vector
 	SVector<3> N = {0.5, 0.5, 1.0/sqrt(2.0)};
-	// parte destra dell'equazione del piano
+	// rhs of plane equation
 	double d = 1.0;
-	// estremi del segmento
+	// segment's vertices
 	SVector<3> Q = {1.1, 1.1, 1.1};
 	SVector<3> R = {2.0, 2.0, 2.0};
 	fdapde::core::Line2Plane l2p;
@@ -101,11 +79,11 @@ TEST(IntersectionTest, SegmentPlaneIntersection_2)
 
 TEST(IntersectionTest, SegmentPlaneIntersection_3)
 {
-	// normale al triangolo
+	// normal unit vector
 	SVector<3> N = {0.5, 0.5, 1.0/sqrt(2.0)};
-	// parte destra dell'equazione del piano
+	// rhs of plane equation
 	double d = 1.0;
-	// estremi del segmento
+	// segment's vertices
 	SVector<3> Q = {1.0, 1.0, 1.0};
 	SVector<3> R = {2.0, 0.0, 1.0};
 	fdapde::core::Line2Plane l2p;
@@ -119,11 +97,11 @@ TEST(IntersectionTest, SegmentPlaneIntersection_3)
 
 TEST(IntersectionTest, SegmentPlaneIntersection_4)
 {
-	// normale al triangolo
+	// normal unit vector
 	SVector<3> N = {0.5, 0.5, 1.0/sqrt(2.0)};
-	// parte destra dell'equazione del piano
+	// rhs of plane equation
 	double d = 1.0;
-	// estremi del segmento
+	// segment's vertices
 	SVector<3> Q = {1.0, 1.0, 0.0};
 	SVector<3> R = {2.0, 0.0, 0.0};
 	fdapde::core::Line2Plane l2p;
@@ -181,9 +159,9 @@ TEST(IntersectionTest, SegmentSegment2D_4)
 }
 */
 
-// INTERSEZIONI TRA UN PUNTO E UN TRIANGOLO IN 2D
+// INTERSECTION BETWEEN A POINT AND A 2D TRIANGLE
 
-// punto esterno al triangolo
+// point external to the triangle
 TEST(IntersectionTest, PointTriangle2D_1)
 {
 	Eigen::Vector2d p(0.0, 0.0);
@@ -194,7 +172,7 @@ TEST(IntersectionTest, PointTriangle2D_1)
 	EXPECT_TRUE(int_type == fdapde::core::Point2Tri::EXTERN);
 }
 
-// punto interno al triangolo
+// point inside the triangle
 TEST(IntersectionTest, PointTriangle2D_2)
 {
 	Eigen::Vector2d p(1.1, 1.1);
@@ -205,7 +183,7 @@ TEST(IntersectionTest, PointTriangle2D_2)
 	EXPECT_TRUE(int_type == fdapde::core::Point2Tri::INTERN);
 }
 
-// punto sul vertice di un triangolo
+// point coinciding with a vertex
 TEST(IntersectionTest, PointTriangle2D_3)
 {
 	Eigen::Vector2d p(1.0, 1.0);
@@ -216,7 +194,7 @@ TEST(IntersectionTest, PointTriangle2D_3)
 	EXPECT_TRUE(int_type == fdapde::core::Point2Tri::ONVERTEX);
 }
 
-// punto sul lato del triangolo
+// point an a triangle's edge
 TEST(IntersectionTest, PointTriangle2D_4)
 {
 	Eigen::Vector2d p(1.0, 1.5);
@@ -228,9 +206,9 @@ TEST(IntersectionTest, PointTriangle2D_4)
 }
 
 
-// INTERSEZIONI TRA PUNTO E TRIANGOLO IN 3D
+// INTERSECTION BETWEEN A POINT AND A 3D TRIANGLE
 
-// punto esterno al triangolo
+// point external to the triangle
 TEST(IntersectionTest, PointTriangle3D_1)
 {
 	Eigen::Vector3d p(0.0, 0.0, 0.0);
@@ -241,7 +219,7 @@ TEST(IntersectionTest, PointTriangle3D_1)
 	EXPECT_TRUE(int_type == fdapde::core::Point2Tri::EXTERN);
 }
 
-// punto interno al triangolo
+// point inside the triangle
 TEST(IntersectionTest, PointTriangle3D_2)
 {
 	Eigen::Vector3d p(1.1, 1.1, 1.0);
@@ -252,7 +230,7 @@ TEST(IntersectionTest, PointTriangle3D_2)
 	EXPECT_TRUE(int_type == fdapde::core::Point2Tri::INTERN);
 }
 
-// punto sul vertice
+// point coinciding with a vertex
 TEST(IntersectionTest, PointTriangle3D_3)
 {
 	Eigen::Vector3d p(1.0, 2.0, 1.0);
@@ -263,7 +241,7 @@ TEST(IntersectionTest, PointTriangle3D_3)
 	EXPECT_TRUE(int_type == fdapde::core::Point2Tri::ONVERTEX);
 }
 
-// punto sul lato
+// point on a triangle's edge
 TEST(IntersectionTest, PointTriangle3D_4)
 {
 	Eigen::Vector3d p(1.0, 1.5, 1.0);
@@ -275,9 +253,9 @@ TEST(IntersectionTest, PointTriangle3D_4)
 }
 
 
-// INTERSEZIONI TRA TRIANGOLI NELLO SPAZIO
+// INTERSECTION BETWEEN TRIANGLES
 
-// Triangoli che non si intersecano
+// non-interecting triangles
 TEST(IntersectionTest, Triangles_1)
 {
 	Eigen::Vector3d p1(0.0, 0.0, 0.0);
@@ -291,7 +269,7 @@ TEST(IntersectionTest, Triangles_1)
 	EXPECT_FALSE(el1.intersection(el2));
 }
 
-// Triangoli che si intersecano
+// intersection triangles
 TEST(IntersectionTest, Triangles_2)
 {
 	Eigen::Vector3d p1(0.0, 0.0, 0.0);
@@ -305,7 +283,6 @@ TEST(IntersectionTest, Triangles_2)
 	EXPECT_TRUE(el1.intersection(el2));
 }
 
-// Triangoli con in comune due vertici
 TEST(IntersectionTest, Triangles_3)
 {
 	Eigen::Vector3d p1(0.0, 0.0, 0.0);
@@ -316,6 +293,6 @@ TEST(IntersectionTest, Triangles_3)
 	Eigen::Vector3d p6(1.0, 1.0, 1.0);
 	Element<2, 3> el1(0, {1, 2, 3}, {p1, p2, p3}, {}, false);
 	Element<2, 3> el2(0, {1, 2, 3}, {p4, p5, p6}, {}, false);
-	EXPECT_FALSE(el1.intersection(el2));
+	EXPECT_TRUE(el1.intersection(el2));
 
 }

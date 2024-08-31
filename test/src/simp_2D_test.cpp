@@ -36,7 +36,15 @@ using namespace fdapde::core;
 using namespace std;
 
 
-TEST(simplification_test, simplification_2D)
+
+#define RESET   "\033[0m"
+#define RED     "\033[31m"
+#define GREEN   "\033[32m"
+#define YELLOW  "\033[33m"
+#define BLUE    "\033[34m"
+
+
+/*TEST(simplification_test, simplification_2D)
 {
     using Clock = std::chrono::high_resolution_clock;
     using std::chrono::duration;
@@ -99,4 +107,15 @@ TEST(simplification_test, simplification_2D)
     for(auto elem_id : active_elems)
         file_qoi<<data_disp_cost.qoi_[elem_id]<<std::endl;
     file_qoi.close();
+}*/
+
+TEST(simplification_test, simplification_2D)
+{
+    DataDispCost<2, 2> data_disp_cost;
+    MeshLoader<Mesh2D> CShaped("unit_square_64");
+    Simplification simp(CShaped.mesh);
+    std::cout<<BLUE<<"\nStarting simplification of the 2D square with data distribution costs\n"<<RESET;
+    std::cout<<"Initial nodes: 4225, final nodes: 3000\n";
+    simp.simplify(3000, data_disp_cost);
+    std::cout<<BLUE<<"Simplification completed\n"<<RESET;
 }

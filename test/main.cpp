@@ -48,13 +48,15 @@
 #include "src/connections_test.cpp"
 #include "src/intersection_on_mesh_test.cpp"
 */
-#include "src/simplification_test.cpp"
+// #include "src/simplification_test.cpp"
+// #include "src/connections_test.cpp"
+// #include "src/quantity_of_information_test.cpp"
 // #include "src/structured_grid_search_test.cpp"
-// #include "src/simp_2D_test.cpp"
-// #include "src/simp_3D_test.cpp"
-// #include "src/simp_irregular_data_test.cpp"
 // #include "src/intersection_test.cpp"
-// #include "src/test_vari.cpp"
+// #include "src/simp_2D_test.cpp"
+// #include "src/simp_surface_test.cpp"
+#include "src/simp_3D_test.cpp"
+// #include "src/simp_irregular_data_test.cpp"
 
 int main(int argc, char** argv) {
     // start testing

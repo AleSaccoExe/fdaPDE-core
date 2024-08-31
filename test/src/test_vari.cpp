@@ -171,33 +171,6 @@ Simplification<2, 3> read_surface_mesh(std::string nodes_file, std::string elems
 TEST(test_vari, test_1)
 {
     // mesh quadrata:
-    /*
-    nodes << 0, 0, 0, 
-    		 1, 0, 0,
-    		 1, 1, 0,
-    		 0, 1, 0,
-    		 0.5, 0, 0,
-             0, 0.5, 0,
-             0.5, 1, 0,
-             0, 0.5, 0,
-             0.5, 0.5, 0,
-             0.25, 0, 0,
-             0.5, 0.25, 0,
-             0.25, 0.5, 0,
-             0, 0.25, 0,
-             0.25, 0.25, 0,
-             0.75, 0, 0,
-             1, 0.25, 0
-             0.75, 0.5, 0,
-             0.75, 0.25, 0,
-             1, 0.75, 0,
-             0.75, 1, 0,
-             0.5, 0.75, 0,
-             0.75, 0.75, 0,
-             0.25, 1, 0,
-             0, 0.75, 0,
-             0.25, 0.75, 0;
-    */
     // Costruzione di una mesh quadrata 2.5D
 
     // prima costruisco una mesh 2D quadrata: 
@@ -239,29 +212,6 @@ TEST(test_vari, test_1)
         const auto& facets_to_update = connections.facets_to_update(38);
         std::cout<<"\nSuppoing that node 38 is the collapsing node, the facets to update are:\n";
         for(auto facet_id : facets_to_update) {std::cout<<facet_id<<"   ";}
-    }
-    
-    // test sulle proiezioni
-    {
-        std::vector<Element<2, 3>> elems;
-        for(unsigned elem_id = 0; elem_id < mesh.n_elements(); ++elem_id) {elems.push_back(mesh.element(elem_id));}
-        std::cout<<std::endl;
-        // Point to project:
-        SVector<3> A = {0.5, 0.5, 1.0};
-        std::cout<<"\nOriginal datum position:\n";
-        std::cout <<A;
-        // build the vector of element of the mesh
-        auto p_A = project(elems, A);
-        std::cout<<"\nProjected datum:\n";
-        std::cout<<p_A<<"\n";
-
-        SVector<3> B = {1.5, 2.0, 3.0};
-        std::cout<<"\nOriginal datum position:\n";
-        std::cout <<B;
-        // build the vector of element of the mesh
-        auto p_B = project(elems, B);
-        std::cout<<"\nProjected datum:\n";
-        std::cout<<p_B<<"\n";
     }
     		 
 }
