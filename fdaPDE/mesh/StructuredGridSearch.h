@@ -81,7 +81,7 @@ class StructuredGridSearch{
 
 
 		// getters
-		BoundingBoxType get_global_bounding_box() const {return std::make_pair(global_SW, global_NE);}
+		BoundingBoxType get_global_bounding_box() const {return {global_SW, global_NE};}
 		const std::array<double, N> & get_cell_size() const {return cell_size;}
 		const std::array<unsigned, N> & get_n_cells() const {return n_cells;}
 		BoundingBoxType get_bounding_box(unsigned el_id) const;
@@ -144,15 +144,15 @@ StructuredGridSearch<M, N>::StructuredGridSearch(const Mesh<M, N> & mesh)
 			}
 		}	
 	}
-	std::cout<<"numero di celle"<<std::endl;
+	/*std::cout<<"numero di celle"<<std::endl;
 	for(unsigned i = 0; i < N; ++i){
 		n_cells[i] = ( global_NE[i] - global_SW[i] )/cell_size[i];
 		std::cout<<n_cells[i]<<", ";
 	}
-	std::cout<<std::endl;
+	std::cout<<std::endl;*/
 	// cell_size is updated using the computed number of cells
 	update_cell_size();
-	std::cout<<"grandezza celle:"<<std::endl<<cell_size[0]<<"  "<<cell_size[1]<<"  "<<cell_size[2]<<std::endl;
+	// std::cout<<"grandezza celle:"<<std::endl<<cell_size[0]<<"  "<<cell_size[1]<<"  "<<cell_size[2]<<std::endl;
 
 	// compute index for all elements
 	for(unsigned id_el = 0; id_el < n_elements; ++id_el) // Loop over the elements
@@ -356,16 +356,16 @@ void StructuredGridSearch<M, N>::refresh(const std::vector<Element<M, N>> & elem
 			}
 		}
 	}
-	std::cout<<"numero di celle:"<<std::endl;
+	/*std::cout<<"numero di celle:"<<std::endl;
 	for(unsigned k = 0; k < N; ++k) { 
 		n_cells[k] = ( global_NE[k] - global_SW[k] )/cell_size[k]; 
 		if(n_cells[k]==0) {n_cells[k]=1;}
 		std::cout<<n_cells[k]<<", ";
 	}
-	std::cout<<std::endl;
+	std::cout<<std::endl;*/
 	// cell_size is updated using the computed number of cells
 	update_cell_size();
-	std::cout<<"grandezza celle:"<<std::endl<<cell_size[0]<<"  "<<cell_size[1]<<"  "<<cell_size[2]<<std::endl;
+	// std::cout<<"grandezza celle:"<<std::endl<<cell_size[0]<<"  "<<cell_size[1]<<"  "<<cell_size[2]<<std::endl;
 	// idx_map has to be rebuilt from scratch
 	idx_map_.clear();
 	// compute index for all elements

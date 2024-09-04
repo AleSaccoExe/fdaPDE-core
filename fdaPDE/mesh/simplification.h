@@ -587,14 +587,14 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
 	static_assert(K == sizeof...(cost_objs));
 	if(n_nodes >= n_nodes_)
 	{
-		#ifndef __TEST__
+		#ifdef __TEST__
 			std::cout<<"required nodes: "<<n_nodes<<", nodes in the mesh: "<<n_nodes_<<std::endl;
 		#endif
 		return;
 	}
 	// Setup of the costs functions:
 	(cost_objs.setup(this), ...);
-	#ifndef __TEST__
+	#ifdef __TEST__
 		std::cout<<"Computing maximum costs...\n";
 	#endif
 
@@ -603,14 +603,14 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
 	for(unsigned i = 0; i < facets_.size(); ++i) {all_facets.insert(i);}
 	(cost_objs.set_threshold(std::numeric_limits<double>::max()), ...);
 	if constexpr(sizeof...(cost_objs)>1) { update_max_costs(all_facets, cost_objs...); }
-	#ifndef __TEST__
+	#ifdef __TEST__
 		std::cout<<"Computing collapsing costs...\n";
 	#endif
 	(cost_objs.set_threshold(std::numeric_limits<double>::max()), ...);
 	compute_costs(all_facets, w, cost_objs...);
 	(cost_objs.set_threshold(1.5), ...);
 	unsigned numero_semplificazione = 1;
-	#ifndef __TEST__
+	#ifdef __TEST__
 		std::cout<<"Starting simplification...\n";
 		unsigned n0 = n_nodes_;
 		unsigned nf = n_nodes;
@@ -622,7 +622,7 @@ void Simplification<M, N>::simplify(unsigned n_nodes, std::array<double, K> w, A
 	// higher then the nodes required
 	while(n_nodes_ > n_nodes && costs_map_.size() > 0)
 	{
-		#ifndef __TEST__
+		#ifdef __TEST__
 			double progress = m*n_nodes_+q;
 			std::cout << "Simplification process        [";
 			unsigned pos(barWidth * progress);

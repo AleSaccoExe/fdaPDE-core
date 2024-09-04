@@ -204,7 +204,7 @@ public:
 					  const std::unordered_set<unsigned> & data_ids) const
 	{
 		double disp_cost = 0.0;
-		// nuove connessioni elemento - dati
+		// new element-data connections
 		std::vector<std::unordered_set<unsigned>> new_elem_to_data = projection_info(elems_modified, p_simp_->get_data(),data_ids);
 		std::unordered_map<unsigned, std::unordered_set<unsigned>> new_data_to_elem;
 		for(unsigned i = 0; i < new_elem_to_data.size(); ++i)
@@ -212,26 +212,26 @@ public:
 			auto& data_on_elem = new_elem_to_data[i];
 			for(unsigned datum_id : data_on_elem) {new_data_to_elem[datum_id].insert(i);}
 		}
-		// adesso per ogni elemento in elems_modifed si calcola il qoi
+		// for each element in elems_modified its qoi is computed
 		for(unsigned i = 0; i < elems_modified.size(); ++i)
 		{
 			double Nt = 0.0;
-			// si prendono i dati sull'elemento
+			// take the data on the element
 			const auto & data_on_elem = new_elem_to_data[i];
 			for(unsigned datum_id : data_on_elem)
 			{
-				// gli elementi a cui il dato appartiene prima del collapse
+				// the elements the data lied on before the collapse:
 				auto patch = p_simp_->data_to_elems(datum_id);
-				// vengono eliminati dal patch gli elementi eliminati e modificati dal collapse
+				// erase from the patch the modified and the erased elements:
 				for(const auto & elem : elems_to_modify) {patch.erase(elem.ID());}
 				for(const auto & elem : elems_to_delete) {patch.erase(elem.ID());}
-				// vengono aggiunte le nuove connessioni
+				// add the new connections:
 				auto patch_size = patch.size() + new_data_to_elem.at(datum_id).size();
 				if (patch_size == 1)
 					Nt += 1.;
 				else
 					Nt += 1./patch_size;
-				assert(patch_size != 0);
+				// assert(patch_size != 0);
 			}
 			disp_cost += (mean_qoi_ - Nt)*(mean_qoi_ - Nt);
 		}
@@ -242,19 +242,19 @@ public:
 				const std::vector<Element<M, N>> & elems_modified)
 	{
 		double sum_qoi = mean_qoi_*num_elems_;
-		// dalla somma dei qoi viene tolto il contributo degli elementi eliminati
+		// erase from the total qoi the qoi of the deleted elements:
 		for(const auto & elem : elems_to_delete) {sum_qoi = sum_qoi - qoi_[elem.ID()];}
-		// viene anche tolto il contributo degli elementi modificati ...
+		// moreover, erase the contribute of the modified elements ...
 		for(const auto & elem : elems_modified) {
 			sum_qoi = sum_qoi - qoi_[elem.ID()];
-			// ... e viene quindi ricalcolato
+			// ... and now compute again their qoi:
 			double new_qoi = compute_qoi(elem.ID());
 			sum_qoi = sum_qoi + new_qoi;
 			qoi_[elem.ID()] = new_qoi;
 		}
-		// viene aggiornato anche il numero degli elementi
+		// update the number of elements:
 		num_elems_ = p_simp_->active_elems().size();
-		// infine è aggiornato il qoi medio
+		// update the mean value of the qoi:
 		mean_qoi_ = sum_qoi/num_elems_;
 	} // update
 

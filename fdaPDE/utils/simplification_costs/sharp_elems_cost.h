@@ -137,10 +137,10 @@ public:
 	void update_min(UpdateArgs&&... update_args) {}
 	// rewrite the operetor() with no ormalization
 
-	template<typename... Costargs>
+	template<typename... CostArgs>
 	double operator()(CostArgs&&... cost_args)
 	{
-		return get_cost(std::forward<ostArgs>(cost_args)...);
+		return get_cost(std::forward<CostArgs>(cost_args)...);
 	}
 	// since normalization is not needed, check_update always returns false
 	bool check_update() {return false;}
