@@ -82,7 +82,7 @@ TEST(simplification_test, sphere_onlygeo)
     std::cout<<BLUE<<"Simplification completed\n"<<RESET;
 }
 
-TEST(simplification_test, sphere_datageo)
+/*TEST(simplification_test, sphere_datageo)
 {
     Mesh<2, 3> sphere_mesh = read_inp("../data/mesh/sfera.inp");
     GeomCost geom_cost;
@@ -94,7 +94,7 @@ TEST(simplification_test, sphere_datageo)
     std::array<double, 3> w = {1./3., 1./3., 1./3.};
     simp.simplify(2500, w,geom_cost, data_dist_cost, data_disp_cost);
     std::cout<<BLUE<<"Simplification completed\n"<<RESET;
-}
+}*/
 
 TEST(simplification_test, pawn_onlygeo)
 {

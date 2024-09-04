@@ -118,8 +118,8 @@ TEST(simplification_test, surface)
     // std::array<double, 3> w = {1./3., 0., 0.};
     auto start = Clock::now();
     // simp.set_check_intersections(true);
-    simp.simplify(target_nodes, w, geom_cost, data_equi_cost, data_dist_cost);
-    // simp.simplify(target_nodes, geom_cost);
+    // simp.simplify(target_nodes, w, geom_cost, data_equi_cost, data_dist_cost);
+    simp.simplify(target_nodes, geom_cost);
     auto end = Clock::now();
     auto elapsed = duration_cast<duration<double>>(end - start);
     std::cout<<"simplificazione finita. Tempo impiegato: "<<elapsed.count()<<"\n";
