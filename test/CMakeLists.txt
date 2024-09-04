@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.14)
 project(TEST)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_CXX_FLAGS "-O2 -march=x86-64 -std=c++17 -I${CMAKE_CURRENT_SOURCE_DIR}/../ -g")
+set(CMAKE_CXX_FLAGS "-O2 -D__TEST__ -march=x86-64 -std=c++17 -I${CMAKE_CURRENT_SOURCE_DIR}/../ -g")
 
 # aggiunta io
 set(Eigen3_DIR "/u/sw/toolchains/gcc-glibc/11.2.0/pkgs/eigen/3.3.9/share/eigen3/cmake")

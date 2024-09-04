@@ -38,122 +38,47 @@ using fdapde::testing::MeshLoader;
 using namespace fdapde::core;
 using namespace std;
 
-/*
-OK:
-- get_facet
-
-FORSE OK:
-- facets_connected_to_node
-- get_elem_to_facet
-
-
-DA DEBUGGARE:
-- nodes_on_facet
-- elems_on_facet. DA ELIMINARE??
-*/
-std::vector<int> generateUniqueRandomNumbers(int N, int M) {
-    std::vector<int> numbers;
-    // Riempire un vettore con numeri da 0 a M-1
-    for (int i = 0; i < M; ++i) {
-        numbers.push_back(i);
-    }
-    // Mescolare il vettore per avere ordine casuale
-    std::random_device rd;
-    std::mt19937 g(rd());
-    std::shuffle(numbers.begin(), numbers.end(), g);
-    // Ridimensionare il vettore per ottenere solo i primi N numeri
-    numbers.resize(N);
-    return numbers;
-}
-
-
-
-/*
-TEST(connections_test, test_1)
+TEST(connections_test, connections_test_1)
 {
-    unsigned id_facet_test = 25;
-    unsigned id_node_test = 30;
-    unsigned id_elem_test = 15;
-    using namespace std::chrono;
-    MeshLoader<Mesh<2, 3>> meshloader("surface");
-    unsigned n_facets = meshloader.mesh.n_facets();
-    high_resolution_clock::time_point start = high_resolution_clock::now();
-    std::vector<int> facets_to_collapse = generateUniqueRandomNumbers(5, n_facets); 
-    auto mesh_simp = meshloader.mesh.simplify({facets_to_collapse.begin(), facets_to_collapse.end()});
-    high_resolution_clock::time_point end = high_resolution_clock::now();
-    auto duration = duration_cast<milliseconds>(end-start).count();
-    cout << "tempo per simplify: " << duration << " ms" << endl;
+    // build a 2D mesh
+    MeshLoader<Mesh<2, 2>> meshloader("unit_square_16");
+    const auto& mesh2D = meshloader.mesh;
+    // add a third coordinate
+    DMatrix<double> nodes(mesh2D.n_nodes(), 3);
+    nodes.setZero();
+    nodes.col(0) = meshloader.points_.col(0);
+    nodes.col(1) = meshloader.points_.col(1);
+    // build the test mesh
+    Mesh<2, 3> mesh(nodes, meshloader.elements_, meshloader.boundary_);
 
+    // TEST
+    {
+        Connections connections(mesh);
+        const auto& node_to_nodes_0 = connections.get_node_to_nodes(18);
+        std::cout<<"\nNodes connected to node 18:\n";
+        for(auto node_id : node_to_nodes_0) {std::cout<<node_id<<"  ";}
+        std::cout<<"\nNodes connected to node 19:\n";
+        const auto& node_to_nodes_8 = connections.get_node_to_nodes(19);
+        for(auto node_id : node_to_nodes_8) {std::cout<<node_id<<"  ";}
+        const auto& node_to_elems_0 = connections.get_node_to_elems(18);
+        std::cout<<"\nElements connected to node 18:\n";
+        for(auto elem_id : node_to_elems_0) {std::cout<<elem_id<<"   ";}
+        const auto& node_to_elems_8 = connections.get_node_to_elems(19);
+        std::cout<<"\nElements connected to node 19:\n";
+        for(auto elem_id : node_to_elems_8) {std::cout<<elem_id<<"   ";}
 
-    std::ofstream file_elems("../../../meshes/elems_simp.txt");
-    std::ofstream file_nodes("../../../meshes/nodes_simp.txt");
+        // Define the edge vith vertices (18, 19)
+        std::array<int, 2> facet({18, 19});
+        const auto& elems_erased = connections.elems_erased_in_collapse(facet);
+        const auto& elems_modified = connections.elems_modified_in_collapse(facet);
+        std::cout<<"\nElems erased by the collapse of facet (18, 19):\n";
+        for(auto elem_id : elems_erased) {std::cout<<elem_id<<"   ";}
+        std::cout<<"\nElems modified by the collapse of facet (18, 19):\n";
+        for(auto elem_id : elems_modified) {std::cout<<elem_id<<"   ";}   
 
-    // Verifica che il file sia stato aperto correttamente
-    if (file_elems.is_open()) {
-        // Scrittura della matrice nel file
-        file_elems << mesh_simp.elements() << std::endl;
-
-        // Chiusura del file
-        file_elems.close();
-
-        std::cout << "Matrice degli elementi scritta con successo nel file." << std::endl;
-    } else {
-        std::cerr << "Impossibile aprire il file degli elementi per la scrittura." << std::endl;
+        const auto& facets_to_update = connections.facets_to_update(38);
+        std::cout<<"\nSuppoing that node 38 is the collapsing node, the facets to update are:\n";
+        for(auto facet_id : facets_to_update) {std::cout<<facet_id<<"   ";}
     }
-
-    if (file_nodes.is_open()) {
-        // Scrittura della matrice nel file
-        file_nodes << mesh_simp.nodes() << std::endl;
-
-        // Chiusura del file
-        file_nodes.close();
-
-        std::cout << "Matrice dei nodi scritta con successo nel file." << std::endl;
-    } else {
-        std::cerr << "Impossibile aprire il file dei nodi per la scrittura." << std::endl;
-    }
-    EXPECT_TRUE(true);
-}
-*/
-
-TEST(connections_test, test_2)
-{
-    using namespace std::chrono;
-    MeshLoader<Mesh<3, 3>> meshloader("unit_sphere");
-    unsigned n_facets = meshloader.mesh.n_facets();
-
-    std::vector<int> facets_to_collapse = generateUniqueRandomNumbers(5, n_facets);
-
-    auto mesh_simp = meshloader.mesh.simplify({facets_to_collapse.begin(), facets_to_collapse.end()});
-
-
-    std::ofstream file_elems("../../../meshes/sphere_elems_simp.txt");
-    std::ofstream file_nodes("../../../meshes/sphere_nodes_simp.txt");
-
-    // Verifica che il file sia stato aperto correttamente
-    if (file_elems.is_open()) {
-        // Scrittura della matrice nel file
-        file_elems << mesh_simp.elements() << std::endl;
-
-        // Chiusura del file
-        file_elems.close();
-
-        std::cout << "Matrice degli elementi scritta con successo nel file." << std::endl;
-    } else {
-        std::cerr << "Impossibile aprire il file degli elementi per la scrittura." << std::endl;
-    }
-
-    if (file_nodes.is_open()) {
-        // Scrittura della matrice nel file
-        file_nodes << mesh_simp.nodes() << std::endl;
-
-        // Chiusura del file
-        file_nodes.close();
-
-        std::cout << "Matrice dei nodi scritta con successo nel file." << std::endl;
-    } else {
-        std::cerr << "Impossibile aprire il file dei nodi per la scrittura." << std::endl;
-    }
-
-    EXPECT_TRUE(true);
+             
 }

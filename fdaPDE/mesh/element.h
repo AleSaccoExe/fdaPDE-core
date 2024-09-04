@@ -91,8 +91,6 @@ template <int M, int N> class Element {
     // AGGIUNTE MIE 
     // ===========>
     bool intersection(const Element<M, N> & other_el) const;
-    // il metodo trova il nodo dell'elemento in facet[1:end] e lo sostituisce con l'id facet[0]
-    void find_and_change_node(const std::array<int, M> & facet);
     // hyperplane passing throught this element
     HyperPlane<M, N> hyperplane() const;
     // ================>
@@ -170,7 +168,7 @@ template <int M, int N>
 template <bool is_manifold>
 typename std::enable_if<!is_manifold, bool>::type Element<M, N>::contains(const SVector<N>& x) const {
     // A point is inside the element if all its barycentric coordinates are positive
-    return (to_barycentric_coords(x).array() >= -10 * std::numeric_limits<double>::epsilon()).all();
+    return (to_barycentric_coords(x).array() >= -100 * std::numeric_limits<double>::epsilon()).all();
 }
 
 template <int M, int N> VectorSpace<M, N> Element<M, N>::spanned_space() const {
@@ -200,17 +198,17 @@ bool Element<2, 3>::intersection(const Element<2, 3>& other_el) const
 {
     // Compute the normal to the triangle and the RHS 
     // of the equation of the plane the triangle lies in
-    auto A = coords_[0];
-    auto B = coords_[1];
-    auto C = coords_[2];
+    const SVector<3>& A = coords_[0];
+    const SVector<3>& B = coords_[1];
+    const SVector<3>& C = coords_[2];
 
-    auto D = other_el.coords_[0];
-    auto E = other_el.coords_[1];
-    auto F = other_el.coords_[2];
+    const SVector<3>& D = other_el.coords_[0];
+    const SVector<3>& E = other_el.coords_[1];
+    const SVector<3>& F = other_el.coords_[2];
     
-    auto N = (B - A).cross(C - B);
+    SVector<3> N = (B - A).cross(C - B);
     N.normalize();
-    auto RHS = N.dot(A);
+    double RHS = N.dot(A);
 
     // Extract the maximum coordinate of N
     int z = getMaxCoord(N); // coordinata massima
@@ -277,20 +275,26 @@ bool Element<2, 3>::intersection(const Element<2, 3>& other_el) const
         // or they do in a conformal way
         return false;
     }
-template<int M, int N>
-void Element<M, N>::find_and_change_node(const std::array<int, M> & facet)
-{
-    for(int i = 0; i < n_vertices; ++i)
-        for(int j = 1; j < M; ++j)
-            if(facet[j] == node_ids_[i]){
-                node_ids_[i] = facet[0];
-                return;
-            }   
-}
+
 template<>
 HyperPlane<2, 3> Element<2, 3>::hyperplane() const
 {
     return HyperPlane<2, 3>(coords_[0], coords_[1], coords_[2]);
+}
+
+template<>
+HyperPlane<2, 2> Element<2, 2>::hyperplane() const
+{
+    return HyperPlane<2, 2>(coords_[0], coords_[1], coords_[2]);
+}
+
+template<>
+HyperPlane<3, 3> Element<3, 3>::hyperplane() const
+{
+    SMatrix<3, 4> coords;
+    for(int i = 0; i < 4; ++i)
+        coords.col(i) = coords_[i];
+    return HyperPlane<3, 3>(coords);
 }
 
 // ================>
