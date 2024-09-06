@@ -144,12 +144,10 @@ StructuredGridSearch<M, N>::StructuredGridSearch(const Mesh<M, N> & mesh)
 			}
 		}	
 	}
-	/*std::cout<<"numero di celle"<<std::endl;
 	for(unsigned i = 0; i < N; ++i){
 		n_cells[i] = ( global_NE[i] - global_SW[i] )/cell_size[i];
-		std::cout<<n_cells[i]<<", ";
+		if(n_cells[i]==0) {n_cells[i]=1;}
 	}
-	std::cout<<std::endl;*/
 	// cell_size is updated using the computed number of cells
 	update_cell_size();
 	// std::cout<<"grandezza celle:"<<std::endl<<cell_size[0]<<"  "<<cell_size[1]<<"  "<<cell_size[2]<<std::endl;
@@ -356,13 +354,10 @@ void StructuredGridSearch<M, N>::refresh(const std::vector<Element<M, N>> & elem
 			}
 		}
 	}
-	/*std::cout<<"numero di celle:"<<std::endl;
 	for(unsigned k = 0; k < N; ++k) { 
 		n_cells[k] = ( global_NE[k] - global_SW[k] )/cell_size[k]; 
 		if(n_cells[k]==0) {n_cells[k]=1;}
-		std::cout<<n_cells[k]<<", ";
 	}
-	std::cout<<std::endl;*/
 	// cell_size is updated using the computed number of cells
 	update_cell_size();
 	// std::cout<<"grandezza celle:"<<std::endl<<cell_size[0]<<"  "<<cell_size[1]<<"  "<<cell_size[2]<<std::endl;

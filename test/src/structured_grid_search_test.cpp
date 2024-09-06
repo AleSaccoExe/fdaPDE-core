@@ -36,56 +36,12 @@ using namespace fdapde::core;
 using namespace std;
 
 
-Mesh<2, 3> read_inp(std::string file)
-{
-    std::ifstream mesh_file(file);
-    int n_nodes, n_elements;
-    std::string line;
-    getline(mesh_file, line);
-    std::string s_num_elem, s_num_ver, num_data;
-    std::istringstream ss(line);
-    ss>>n_nodes;
-    ss>>n_elements;
-    DMatrix<double> nodes(n_nodes, 3);
-    DMatrix<int> elements(n_elements, 3);
-    for(unsigned i = 0; i<n_nodes; ++i)
-    {
-        getline(mesh_file, line);
-        std::string x, y, z;
-        std::istringstream ss(line);
-        std::string useless;
-        ss>>useless;
-        ss>>x>>y>>z;
-        nodes(i, 0) = std::stod(x);
-        nodes(i, 1) = std::stod(y);
-        nodes(i, 2) = std::stod(z);
-    }
-    for(unsigned i = 0; i< n_elements; ++i)
-    {
-        getline(mesh_file, line);
-        std::string useless;
-        std::istringstream ss(line);
-        ss>>useless; ss>>useless; ss>>useless;
-        std::string node_id1, node_id2, node_id3;
-        ss>>node_id1>>node_id2>>node_id3;
-        elements(i, 0) = std::stoi(node_id1)-1;
-        elements(i, 1) = std::stoi(node_id2)-1;
-        elements(i, 2) = std::stoi(node_id3)-1;
-    }
-    DMatrix<int> boundary(n_nodes, 1);
-    boundary.setZero();
-    return Mesh<2, 3>(nodes, elements, boundary);
-
-}
-
-
 
 TEST(StructuredGridSearch_test, StructuredGridSearch_test_1)
 {
     MeshLoader<SurfaceMesh> mesh_loader("surface");
-    Mesh<2, 3> pawn_mesh = read_inp("../data/mesh/pawn.inp");
     // StructureGridSearch instantiation
-    StructuredGridSearch sgs(pawn_mesh);
+    StructuredGridSearch sgs(mesh_loader.mesh);
 
     {
         auto cell_size = sgs.get_cell_size();
