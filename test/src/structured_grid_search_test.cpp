@@ -47,8 +47,8 @@ TEST(StructuredGridSearch_test, StructuredGridSearch_test_1)
         auto cell_size = sgs.get_cell_size();
         auto n_cells = sgs.get_n_cells();
         cout<<"cells along x axis: "<<n_cells[0]<<", dimension: "<<cell_size[0]<<endl;
-        cout<<"cells along y axis: "<<n_cells[1]<<", dimension: "<<cell_size[2]<<endl;
-        cout<<"cells along z axis: "<<n_cells[1]<<", dimension: "<<cell_size[2]<<endl;
+        cout<<"cells along y axis: "<<n_cells[1]<<", dimension: "<<cell_size[1]<<endl;
+        cout<<"cells along z axis: "<<n_cells[2]<<", dimension: "<<cell_size[2]<<endl;
     }
 
     {
