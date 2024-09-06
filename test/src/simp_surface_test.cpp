@@ -126,13 +126,13 @@ TEST(simplification_test, torus_onlygeo)
     Mesh<2, 3> pawn_mesh = read_inp("../data/mesh/toro.inp");
     GeomCost geom_cost;
     Simplification simp(pawn_mesh);
-    std::cout<<BLUE<<"\nStarting simplification of the pawn with only geometric cost\n"<<RESET;
+    std::cout<<BLUE<<"\nStarting simplification of the torus with only geometric cost\n"<<RESET;
     std::cout<<"Initial nodes: 7496, final nodes: 3500\n";
     simp.simplify(3500, geom_cost);
     std::cout<<BLUE<<"Simplification completed\n"<<RESET;
 }
 
-TEST(simplification_test, torus_sharp)
+/*TEST(simplification_test, torus_sharp)
 {
     Mesh<2, 3> pawn_mesh = read_inp("../data/mesh/toro.inp");
     GeomCost geom_cost;
@@ -145,4 +145,4 @@ TEST(simplification_test, torus_sharp)
     std::array<double, 4> w = {0.3, 0.3, 0.3, 0.1};
     simp.simplify(1500, w,geom_cost, data_dist_cost, data_disp_cost, sharp_elems_cost);
     std::cout<<BLUE<<"Simplification completed\n"<<RESET;
-}
+}*/

@@ -50,7 +50,7 @@ TEST(simplification_test, surface)
     DataEquiCost<2, 3> data_equi_cost;
     
     // MeshLoader<Mesh<2, 3>> meshloader("surface");
-    std::ifstream mesh_file("../../../meshsimplification/mesh/pawn.inp");
+    std::ifstream mesh_file("../../../meshes/sfera_dati_irregolari_meshsimp.inp");
     int n_nodes, n_elements;
     std::string line;
     getline(mesh_file, line);

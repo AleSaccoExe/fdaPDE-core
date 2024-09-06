@@ -88,13 +88,11 @@ template <int M, int N> class Element {
 	embedding_dimension = N
     };
 
-    // AGGIUNTE MIE 
-    // ===========>
+    // ================
     bool intersection(const Element<M, N> & other_el) const;
     // hyperplane passing throught this element
     HyperPlane<M, N> hyperplane() const;
-    // ================>
-    // FINE AGGIUNTE MIE
+    // ================
 };
 
 // implementation details
@@ -191,7 +189,7 @@ typename std::enable_if<is_manifold, bool>::type Element<M, N>::contains(const S
     return (to_barycentric_coords(x).array() >= -10 * std::numeric_limits<double>::epsilon()).all();
 }
 
-// AGGIUNTE MIE
+
 // ===========>
 template<>
 bool Element<2, 3>::intersection(const Element<2, 3>& other_el) const
@@ -298,7 +296,6 @@ HyperPlane<3, 3> Element<3, 3>::hyperplane() const
 }
 
 // ================>
-// FINE AGGIUNTE MIE
 
 }   // namespace core
 }   // namespace fdapde

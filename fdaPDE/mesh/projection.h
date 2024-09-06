@@ -61,31 +61,6 @@ std::vector<std::unordered_set<unsigned>> project(const std::vector<Element<2, 3
 		for(unsigned i = 0; i < elems.size(); ++i) // loop over elements
 		{
 			const auto & elem = elems[i];
-			// si vede se il dato coincide con un vertice
-			/*for(SVector<3> vertex : elem.coords())
-				if((vertex-datum).norm()<DOUBLE_TOLERANCE) // il dato coincide col vertice
-				{
-					opt_pos = datum;
-					opt_dist = 0.0;
-					new_elem_to_data[i].insert(datum_id);
-					done = true;
-					already_inside = true;
-				}
-			// si vede se il dato giace su uno spigolo del triangolo
-			for(unsigned v1 = 0; v1 < 3; ++v1)
-				for(unsigned v2 = v1+1; v2 < 3; ++v2)
-				{
-					SVector<3> A = elem.coords()[v1];
-					SVector<3> B = elem.coords()[v2];
-					if( std::abs( (A-datum).norm()+(B-datum).norm()-(A-B).norm() ) < DOUBLE_TOLERANCE ) // il punto è dentro il lato AB
-					{
-						opt_pos = datum;
-						opt_dist = 0.0;
-						new_elem_to_data[i].insert(datum_id);
-						done = true;
-						already_inside = true;
-					}
-				}*/
 			if(elem.contains(datum)) // if the point is already inside an element ...
 			{ 
 				opt_pos = datum;
@@ -283,31 +258,6 @@ std::vector<std::unordered_set<unsigned>> projection_info(const std::vector<Elem
 		for(unsigned i = 0; i < elems.size(); ++i) // loop sugli elementi
 		{
 			const auto & elem = elems[i];
-			// si vede se il dato coincide con un vertice
-			/*for(SVector<3> vertex : elem.coords())
-				if((vertex-datum).norm()<DOUBLE_TOLERANCE) // il dato coincide col vertice
-				{
-					opt_pos = datum;
-					opt_dist = 0.0;
-					new_elem_to_data[i].insert(datum_id);
-					done = true;
-					already_inside = true;
-				}
-			// si vede se il dato giace su uno spigolo del triangolo
-			for(unsigned v1 = 0; v1 < 3; ++v1)
-				for(unsigned v2 = v1+1; v2 < 3; ++v2)
-				{
-					SVector<3> A = elem.coords()[v1];
-					SVector<3> B = elem.coords()[v2];
-					if( std::abs( (A-datum).norm()+(B-datum).norm()-(A-B).norm() ) < DOUBLE_TOLERANCE ) // il punto è dentro il lato AB
-					{
-						opt_pos = datum;
-						opt_dist = 0.0;
-						new_elem_to_data[i].insert(datum_id);
-						done = true;
-						already_inside = true;
-					}
-				}*/
 			if(elem.contains(datum)) // si verifica se il punto è interno al triangolo
 			{
 				opt_pos = datum;
@@ -476,29 +426,6 @@ SVector<3> project(const std::vector<Element<2, 3>>&  elems, SVector<3> datum)
 		for(unsigned i = 0; i < elems.size(); ++i) // loop sugli elementi
 		{
 			const auto & elem = elems[i];
-			// si vede se il dato coincide con un vertice
-			/*for(SVector<3> vertex : elem.coords())
-				if((vertex-datum).norm()<DOUBLE_TOLERANCE) // il dato coincide col vertice
-				{
-					opt_pos = datum;
-					opt_dist = 0.0;
-					done = true;
-					already_inside = true;
-				}
-			// si vede se il dato giace su uno spigolo del triangolo
-			for(unsigned v1 = 0; v1 < 3; ++v1)
-				for(unsigned v2 = v1+1; v2 < 3; ++v2)
-				{
-					SVector<3> A = elem.coords()[v1];
-					SVector<3> B = elem.coords()[v2];
-					if( std::abs( (A-datum).norm()+(B-datum).norm()-(A-B).norm() ) < DOUBLE_TOLERANCE ) // il punto è dentro il lato AB
-					{
-						opt_pos = datum;
-						opt_dist = 0.0;
-						done = true;
-						already_inside = true;
-					}
-				}*/
 			if(elem.contains(datum)) // si verifica se il punto è interno al triangolo
 			{
 				opt_pos = datum;
