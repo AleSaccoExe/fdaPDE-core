@@ -111,13 +111,13 @@ TEST(simplification_test, pawn_datageo)
 {
     Mesh<2, 3> pawn_mesh = read_inp("../../../meshes/pawn.inp");
     GeomCost geom_cost;
-    DataDispCost<2, 3> data_disp_cost;
+    DataEquiCost<2, 3> data_equi_cost;
     DataDistCost data_dist_cost;
     Simplification simp(pawn_mesh);
     std::cout<<BLUE<<"\nStarting simplification of the pawn with geometric, data distance and data distribution costs\n"<<RESET;
     std::cout<<"Initial nodes: 2522, final nodes: 1500\n";
     std::array<double, 3> w = {1./3., 1./3., 1./3.};
-    simp.simplify(1500, w,geom_cost, data_dist_cost, data_disp_cost);
+    simp.simplify(1500, w,geom_cost, data_dist_cost, data_equi_cost);
     std::cout<<BLUE<<"Simplification completed\n"<<RESET;
 }
 
@@ -136,7 +136,7 @@ TEST(simplification_test, torus_onlygeo)
 {
     Mesh<2, 3> pawn_mesh = read_inp("../data/mesh/toro.inp");
     GeomCost geom_cost;
-    DataDispCost<2, 3> data_disp_cost;
+    DataEquiCost<2, 3> data_disp_cost;
     DataDistCost data_dist_cost;
     SharpElemsCost<2, 3> sharp_elems_cost;
     Simplification simp(pawn_mesh);

@@ -47,11 +47,11 @@ using namespace std;
 
 TEST(simplification_test, simplification_2D)
 {
-    DataDispCost<2, 2> data_disp_cost;
+    DataEquiCost<2, 2> data_equi_cost;
     MeshLoader<Mesh2D> CShaped("unit_square_64");
     Simplification simp(CShaped.mesh);
     std::cout<<BLUE<<"\nStarting simplification of the 2D square with data distribution costs\n"<<RESET;
     std::cout<<"Initial nodes: 4225, final nodes: 3000\n";
-    simp.simplify(3000, data_disp_cost);
+    simp.simplify(3000, data_equi_cost);
     std::cout<<BLUE<<"Simplification completed\n"<<RESET;
 }

@@ -97,10 +97,10 @@ TEST(simplification_test, simplification_3D)
     Mesh<3, 3> mesh_3D = read_3D("../data/mesh/meshes_3D/elems_cubo.txt", 
                                  "../data/mesh/meshes_3D/nodes_cubo.txt",
                                  "../data/mesh/meshes_3D/boundary_cubo.txt");
-    DataDispCost<3, 3> data_disp_cost;
+    DataEquiCost<3, 3> data_equi_cost;
     Simplification simp(mesh_3D);
     std::cout<<BLUE<<"\nStarting simplification of the 3D cube with data distribution costs\n"<<RESET;
     std::cout<<"Initial nodes: 2091, final nodes: 1500\n";
-    simp.simplify(1500, data_disp_cost);
+    simp.simplify(1500, data_equi_cost);
     std::cout<<BLUE<<"Simplification completed\n"<<RESET;
 }

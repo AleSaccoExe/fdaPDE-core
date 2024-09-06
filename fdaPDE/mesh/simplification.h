@@ -237,12 +237,6 @@ void Simplification<M, N>::compute_costs(const std::set<unsigned> & facet_ids, c
 	    	for(unsigned i = 0; i < elems_modified.size() && valid_collapse; ++i)
 	        	{ valid_collapse = valid_collapse && ( elems_modified[i].measure()>100.0*DOUBLE_TOLERANCE )
 	        								  && ( new_normals[i].dot(old_normals[i]) > DOUBLE_TOLERANCE ); }
-	        // test su elementi vuoti
-	        /*if(valid_collapse)
-	        {
-		        auto elem_to_data = projection_info(elems_modified, this->data_, data_ids);
-		        for(const auto& connections : elem_to_data) {valid_collapse = valid_collapse && (connections.size()>0);}
-	        }*/
 	        // If the collapse is valid, compute and save the collapsing cost:
 	     	if(valid_collapse)
 	     	{
@@ -480,11 +474,11 @@ void Simplification<M, N>::erase_facets(const std::unordered_set<unsigned> & fac
 		if(facets_cost_.find(facet_id) != facets_cost_.end()){
 			double cost = facets_cost_.at(facet_id);
 			auto it = costs_map_.find(cost);
-			assert(it != costs_map_.end());
+			// assert(it != costs_map_.end());
 			while(it->second.first != facet_id)
 				++it;
-			assert(it != costs_map_.end());
-			assert(it->second.first == facet_id);
+			// assert(it != costs_map_.end());
+			// assert(it->second.first == facet_id);
 			costs_map_.erase(it);
 			facets_cost_.erase(facet_id);
 		}

@@ -108,11 +108,11 @@ TEST(simplification_test, sphere_with_irregular_data)
                                                   "../data/mesh/simulation2_triangles.txt",
                                                   "../data/mesh/simulation2_2500data.txt");
     GeomCost geom_cost;
-    DataDispCost<2, 3> data_disp_cost;
+    DataEquiCost<2, 3> data_equi_cost;
     DataDistCost data_dist_cost;
     std::cout<<BLUE<<"\nStarting simplification of the sphere with data scattered irregularly with geometric, data distance and data distribution costs\n"<<RESET;
     std::cout<<"Initial nodes: 3097, final nodes: 2500\n";
     std::array<double, 3> w = {1./3., 1./3., 1./3.};
-    simp.simplify(1500, w,geom_cost, data_dist_cost, data_disp_cost);
+    simp.simplify(1500, w,geom_cost, data_dist_cost, data_equi_cost);
     std::cout<<BLUE<<"Simplification completed\n"<<RESET;
 }
