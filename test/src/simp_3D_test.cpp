@@ -45,51 +45,6 @@ using namespace std;
 
 
 
-Mesh<3,3> read_3D(std::string file_elems, std::string file_nodes, std::string file_boundary)
-{
-    std::ifstream orig_elems_file(file_elems);
-    std::ifstream orig_nodes_file(file_nodes);
-    std::ifstream orig_boundary_file(file_boundary);
-    unsigned n_elements = 0;
-    unsigned n_nodes = 0;
-    std::string line;
-    while(getline(orig_nodes_file, line)) {++n_nodes;}
-    while(getline(orig_elems_file, line)) {++n_elements;}
-    DMatrix<int> elements(n_elements, 4);
-    DMatrix<double> nodes(n_nodes, 3);
-    DMatrix<int> boundary(n_nodes, 1);
-
-    orig_elems_file.clear();
-    orig_nodes_file.clear();
-    orig_nodes_file.seekg(0);
-    orig_elems_file.seekg(0);
-    for(unsigned i = 0; i<n_nodes; ++i)
-    {
-        std::string boundary_line;
-        getline(orig_nodes_file, line);
-        getline(orig_boundary_file, boundary_line);
-        std::string x, y, z;
-        std::istringstream ss(line);
-        ss>>x>>y>>z;
-        nodes(i, 0) = std::stod(x);
-        nodes(i, 1) = std::stod(y);
-        nodes(i, 2) = std::stod(z);
-        boundary(i, 0) = std::stoi(boundary_line);
-    }
-    for(unsigned i = 0; i< n_elements; ++i)
-    {
-        getline(orig_elems_file, line);
-        std::istringstream ss(line);
-        std::string node_id1, node_id2, node_id3, node_id4;
-        ss>>node_id1>>node_id2>>node_id3>>node_id4;
-        elements(i, 0) = std::stoi(node_id1)-1;
-        elements(i, 1) = std::stoi(node_id2)-1;
-        elements(i, 2) = std::stoi(node_id3)-1;
-        elements(i, 3) = std::stoi(node_id4)-1;
-    }
-    Mesh<3, 3> mesh(nodes, elements, boundary);  
-    return mesh;  
-}
 
 
 TEST(simplification_test, simplification_3D)
