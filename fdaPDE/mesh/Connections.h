@@ -244,8 +244,6 @@ public:
 			facets[{node_ids.begin(), node_ids.end()}] = id_facet;
 		}
 	} // constructor
-	// Temporary method (not used by Simplification)
-	void refresh();
 
 
 	// Find the nodes that insist on the input facet
@@ -424,59 +422,6 @@ public:
 	} // collapse_facet
 
 };
-
-// ======================
-// IMPLEMENTATIVE DETAILS
-// ======================
-
-
-
-void Connections::refresh()
-{
-	// mappa dal vecchio id del nodo al nuovo id del nodo
-	std::map<unsigned, unsigned> old_to_new_node_ids;
-	// mappa dal vecchio id dell'elemento al nuovo id dell'elemento
-	std::map<unsigned, unsigned> old_to_new_el_ids;
-	unsigned new_id = 0;
-	for(unsigned old_node_id : active_nodes){
-		old_to_new_node_ids[old_node_id] = new_id;
-		new_id++;
-	}
-	new_id = 0;
-	for(unsigned old_el_id : active_elements){
-		old_to_new_el_ids[old_el_id] = new_id;
-		new_id++;
-	}
-
-	// qui salvo le nuove connessioni da sostituire poi nei membri della classe
-	ConnectionsType new_node_to_nodes;
-	ConnectionsType new_node_to_elems;
-
-	new_id = 0; // il nuovo id del nodo comincia da 0
-	for(unsigned i : active_nodes)
-	{
-		new_node_to_elems.push_back({});
-		new_node_to_nodes.push_back({});
-		// dentro a new_node_to_elems vengono sostituiti i vecchi id degli elementi
-		std::unordered_set<unsigned> old_node_to_elems = node_to_elems[i];
-		for(unsigned old_el_id : old_node_to_elems)
-			new_node_to_elems[new_id].insert(old_to_new_el_ids[old_el_id]);
-		
-		// dentro a new_node_to_node vengono sostituiti i vecchi id dei nodi
-		std::unordered_set<unsigned> old_node_to_nodes = node_to_nodes[i];
-		for(unsigned old_node_id : old_node_to_nodes)
-			new_node_to_nodes[new_id].insert(old_to_new_node_ids[old_node_id]);
-		
-		new_id++;
-	}
-
-	// ora manca solo da sostituire i nuovi vettori a quelli della classe
-	node_to_nodes = new_node_to_nodes;
-	node_to_elems = new_node_to_elems; 
-} // refresh
-
-
-
 
 
 

@@ -67,15 +67,6 @@ class StructuredGridSearch{
 		void erase_elements(const std::unordered_set<unsigned> & el_ids);
 		// Add in idx_map_ the elements in input, and update the bounding box in bounding_boxes_
 		void add_elements(const std::vector<Element<M, N>> & elems);
-		// Temporary method: it is not used by Simplification
-		// Updates the information of the input elements 
-		// The "f" stands for fast, since the method does not check if the structure has to be refreshed
-		void update_f(const std::vector<Element<M, N>> & elements);
-		// Temporary method: it is not used by Simplification
-		// Erase some elements, update informations of other elements and check if the structure
-		// has to be refreshed
-		void update(const std::vector<Element<M, N>> & elems_to_update, 
-			const std::unordered_set<unsigned> & elems_to_erase, bool refresh_check = false);
 		// refresh the structure: compute again cell_size, n_cells, and the index for all elements
 		void refresh(const std::vector<Element<M, N>> & elems, const std::set<unsigned> & active_elems, unsigned n_nodes); 
 
@@ -166,41 +157,6 @@ StructuredGridSearch<M, N>::StructuredGridSearch(const Mesh<M, N> & mesh)
 	}
 }
 
-template<int M, int N>
-void StructuredGridSearch<M, N>::update_f(const std::vector<Element<M, N>> & elements)
-{
-	for (const auto & element : elements)
-	{
-		unsigned el_id = element.ID();
-		//
-		// Remove old bounding box
-		//
-		
-		// Extract element index
-		// if(boxes_map.find(el_id) != boxes_map.end())
-		{
-			// auto bounding_box = boxes_map.at(el_id); // get the bounding box of the element
-			const auto& bounding_box = bounding_boxes_[el_id];
-			// compute the middle point of the bb to get the old index of the element
-			SVector<N> middle_point = 0.5*(bounding_box[0] + bounding_box[1]);
-			unsigned idx = compute_index(middle_point); // old index of the element
-			// the bounding box of the element is erased and then computed again
-			// boxes_map.erase(el_id);
-			// the element is erased
-			// se è tutto giusto non c'e bisogno di un controllo
-			// assert( idx_map.at(idx).find(el_id) != idx_map.at(idx).end() );
-			idx_map_.at(idx).erase(el_id);
-			// now the new bounding box is computed
-			auto new_bb = element.bounding_box();
-			SVector<N> new_middle_point = 0.5*(new_bb.first + new_bb.second);
-			bounding_boxes_[el_id] = new_bb;
-			unsigned new_idx = compute_index(new_middle_point); // compute the new index
-			idx_map_[new_idx].insert(el_id); // insert it in the map
-
-		}
-		
-	}
-}
 
 template<int M, int N>
 typename StructuredGridSearch<M, N>::BoundingBoxType StructuredGridSearch<M, N>::get_bounding_box(unsigned el_id) const
@@ -276,18 +232,6 @@ bool StructuredGridSearch<M, N>::check_elem_size(const Element<M, N> & elem) con
 	return false;
 }
 
-template<int M, int N>
-void StructuredGridSearch<M, N>::update(const std::vector<Element<M, N>> & elems_to_update, 
-	const std::unordered_set<unsigned> & elems_to_erase, bool refresh_check)
-{
-	erase_elements({elems_to_erase.begin(), elems_to_erase.end()});
-	update_f(elems_to_update);
-	// check if the elements are getting too big
-	if(refresh_check)
-		for(const auto & elem : elems_to_update)
-			to_refresh_ = to_refresh_ || check_elem_size(elem);
-
-}
 
 template<int M, int N>
 void StructuredGridSearch<M, N>::add_elements(const std::vector<Element<M, N>> & elems)
