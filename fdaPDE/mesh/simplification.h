@@ -713,6 +713,7 @@ Mesh<M, N> Simplification<M, N>::build_mesh() const
         for(unsigned j = 0; j < Mesh<M, N>::n_vertices; ++j)
             new_elems(new_id, j) = node_ids_map.at(elems_mat_(old_id, j));
         new_id++;
+        new_boundary(new_id) = boundary_(old_id);
     }
     return Mesh<M, N>(new_nodes, new_elems, new_boundary);
 }
