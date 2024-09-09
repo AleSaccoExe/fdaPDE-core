@@ -42,6 +42,8 @@
 !test/data/*
 !test/data/mesh/
 !test/data/mesh/*
+!test/data/mesh/meshes_2D/
+!test/data/mesh/meshes_2D/*
 !test/data/mesh/quasi_circle/
 !test/data/mesh/quasi_circle/*
 !test/data/mesh/unit_sphere/
